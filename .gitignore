@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+path/to/venv/
+path/
+
+# Local OS/editor files
+.DS_Store
+.idea/
+.vscode/
+settings.json
+test.py
+
+# Generated outputs and scratch files
+tmp/
+outputs/
+*.jsonl
+*.log
+
+# Local secrets/config
+.env
+.env.*
