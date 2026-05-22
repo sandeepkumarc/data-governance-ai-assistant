@@ -179,6 +179,11 @@ The assistant creates draft suggestions. A data steward should review and approv
 - Uses safe sample metadata for demos.
 - Outputs are review artifacts, not final policy decisions.
 
+## Screenshots
+![Upload and settings](docs/images/Screenshot1.png)
+
+![Results table](docs/images/Screenshot2.png)
+
 ## Roadmap
 
 - Add business glossary term generation as a separate output.
