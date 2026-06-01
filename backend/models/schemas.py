@@ -67,3 +67,13 @@ class KnowledgeNlUpdatePayload(BaseModel):
     base_url: str = "http://localhost:11434"
     no_llm: bool = False
     dry_run: bool = False
+
+
+class LineageNlUpdatePayload(BaseModel):
+    instruction: str
+    provider: str = "ollama"
+    model: str = "gemma4:e2b"
+    base_url: str = "http://localhost:11434"
+    no_llm: bool = False
+    dry_run: bool = False
+    apply_after: bool = True

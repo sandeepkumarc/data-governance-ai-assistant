@@ -38,6 +38,10 @@ def sync_from_field_definitions(session: Session, definitions: Iterable[FieldDef
     for database_name, table_name in affected_tables:
         recompute_trust_score(session, database_name, table_name)
 
+    from services.lineage_policies import apply_lineage_policies
+
+    apply_lineage_policies(session)
+
 
 def sync_lineage_for_definition(session: Session, definition: FieldDefinition) -> None:
     db_id = slug_database(definition.database_name)
@@ -77,20 +81,6 @@ def sync_lineage_for_definition(session: Session, definition: FieldDefinition) -
 
     _upsert_lineage_edge(session, db_id, table_id)
     _upsert_lineage_edge(session, table_id, column_id)
-
-    haystack = " ".join(
-        [
-            definition.column_name,
-            definition.data_classification,
-            definition.sensitivity,
-            definition.definition,
-        ]
-    ).lower()
-
-    if any(token in haystack for token in ["confidential", "restricted", "personal", "pii", "email", "contact"]):
-        _upsert_lineage_edge(session, column_id, "report_audit", "PII scan target")
-    if any(token in haystack for token in ["financial", "payment", "salary", "revenue", "amount"]):
-        _upsert_lineage_edge(session, column_id, "report_sales", "revenue links")
 
 
 def suggest_quality_rules(session: Session, definition: FieldDefinition) -> None:

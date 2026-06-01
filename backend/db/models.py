@@ -120,6 +120,21 @@ class LineageEdge(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class LineagePolicy(Base):
+    __tablename__ = "lineage_policies"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str] = mapped_column(Text, default="")
+    rule_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    config: Mapped[dict] = mapped_column(JSON, default=dict)
+    source: Mapped[str] = mapped_column(String(32), default="system")
+    nl_instruction: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
 class QualityRule(Base):
     __tablename__ = "quality_rules"
     __table_args__ = (

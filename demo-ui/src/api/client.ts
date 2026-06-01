@@ -5,6 +5,8 @@ import type {
   KbNlUpdateResult,
   KbSection,
   LineageGraph,
+  LineageNlUpdateResult,
+  LineagePolicy,
   QualityRule,
   StewardAssignment,
   TrustScore,
@@ -201,12 +203,50 @@ export const api = {
     });
   },
 
-  lineage: (database_name?: string, apiKey?: string) => {
+  lineage: async (database_name?: string, apiKey?: string) => {
     const q = database_name
       ? `?database_name=${encodeURIComponent(database_name)}`
       : "";
-    return request<LineageGraph>(`/api/lineage${q}`, { apiKey });
+    const graph = await request<LineageGraph>(`/api/lineage${q}`, { apiKey });
+    return {
+      ...graph,
+      edges: graph.edges.map((e, i) => ({
+        id: e.id ?? `edge-${i}`,
+        source_id: e.source_id ?? (e as { source?: string }).source ?? "",
+        target_id: e.target_id ?? (e as { target?: string }).target ?? "",
+        label: e.label ?? "",
+      })),
+    };
   },
+
+  lineagePolicies: (apiKey?: string) =>
+    request<{ policies: LineagePolicy[] }>("/api/lineage/policies", { apiKey }),
+
+  applyLineagePolicies: (apiKey?: string) =>
+    request<LineageNlUpdateResult["apply_result"]>("/api/lineage/policies/apply", {
+      method: "POST",
+      apiKey,
+    }),
+
+  nlUpdateLineagePolicy: (
+    body: {
+      instruction: string;
+      no_llm?: boolean;
+      dry_run?: boolean;
+      apply_after?: boolean;
+    },
+    apiKey?: string,
+  ) =>
+    request<LineageNlUpdateResult>("/api/lineage/policies/nl-update", {
+      method: "POST",
+      apiKey,
+      body: JSON.stringify({
+        provider: "ollama",
+        model: "gemma4:e2b",
+        base_url: "http://localhost:11434",
+        ...body,
+      }),
+    }),
 
   qualityRules: (params?: {
     database_name?: string;

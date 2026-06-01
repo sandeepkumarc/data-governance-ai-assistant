@@ -407,6 +407,8 @@ export const DEMO_LINEAGE: LineageGraph = {
     { id: "db:finance_db", label: "finance_db", type: "database" },
     { id: "tbl:finance_db:payments", label: "payments", type: "table", database_name: "finance_db" },
     { id: "col:finance_db:payments:payment_token", label: "payment_token", type: "column", classification: "Restricted", sensitivity: "High" },
+    { id: "col:finance_db:orders:customer_id", label: "customer_id", type: "column", classification: "Restricted", sensitivity: "High", database_name: "finance_db", table_name: "orders" },
+    { id: "tbl:finance_db:orders", label: "orders", type: "table", database_name: "finance_db" },
     { id: "report_audit", label: "GDPR Compliance Ledger", type: "report", details: "Securities audit log" },
     { id: "report_sales", label: "Sales & Revenue Dashboard", type: "report", details: "Executive reporting" },
   ],
@@ -418,6 +420,9 @@ export const DEMO_LINEAGE: LineageGraph = {
     { id: "e5", source_id: "db:finance_db", target_id: "tbl:finance_db:payments", label: "" },
     { id: "e6", source_id: "tbl:finance_db:payments", target_id: "col:finance_db:payments:payment_token", label: "" },
     { id: "e7", source_id: "col:finance_db:payments:payment_token", target_id: "report_sales", label: "revenue links" },
+    { id: "e8", source_id: "db:finance_db", target_id: "tbl:finance_db:orders", label: "" },
+    { id: "e9", source_id: "tbl:finance_db:orders", target_id: "col:finance_db:orders:customer_id", label: "" },
+    { id: "e10", source_id: "col:customer_db:customers:customer_id", target_id: "col:finance_db:orders:customer_id", label: "same full name" },
   ],
 };
 

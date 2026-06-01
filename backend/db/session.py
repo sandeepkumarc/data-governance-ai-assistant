@@ -74,6 +74,10 @@ def init_db() -> None:
     """Create tables and seed starter data when the database is empty."""
     Base.metadata.create_all(bind=engine)
     with session_scope() as session:
+        from services.lineage_policies import ensure_default_policies
+
+        ensure_default_policies(session)
+
         if session.scalar(select(StewardAssignment.id).limit(1)) is None:
             for row in SEED_STEWARDSHIP:
                 session.add(StewardAssignment(**row))

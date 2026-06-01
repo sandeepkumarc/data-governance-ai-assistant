@@ -130,6 +130,28 @@ export interface KbNlUpdateResult {
   sections?: KbSection[];
 }
 
+export interface LineagePolicy {
+  id?: string;
+  name: string;
+  description?: string;
+  enabled?: boolean;
+  rule_type: string;
+  config?: Record<string, unknown>;
+}
+
+export interface LineageNlUpdateResult {
+  summary: string;
+  dry_run: boolean;
+  applied: boolean;
+  policy: LineagePolicy;
+  policies?: LineagePolicy[];
+  apply_result?: {
+    policies_run: number;
+    edges_added: number;
+    results: Array<Record<string, unknown>>;
+  };
+}
+
 export interface AnalyzeField {
   database_name: string;
   table_name: string;

@@ -1,0 +1,26 @@
+# UI only — use when backend runs natively on Windows (Python venv + uvicorn)
+# and Node.js is provided via Docker.
+#
+# Terminal 1 (native): backend on :8000
+# Terminal 2:
+#   docker compose -f docker-compose.demo-ui.yml up --build
+#
+# Open: http://localhost:5173
+
+services:
+  demo-ui:
+    build: ./demo-ui
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_DEV_HOST: "0.0.0.0"
+      VITE_DEV_API_PROXY: "http://host.docker.internal:8000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./demo-ui/src:/app/src
+      - ./demo-ui/public:/app/public
+      - demo_ui_node_modules:/app/node_modules
+
+volumes:
+  demo_ui_node_modules:

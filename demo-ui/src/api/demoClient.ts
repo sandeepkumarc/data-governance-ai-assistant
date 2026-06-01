@@ -5,6 +5,8 @@ import type {
   KbNlUpdateResult,
   KbSection,
   LineageGraph,
+  LineageNlUpdateResult,
+  LineagePolicy,
   QualityRule,
   StewardAssignment,
   TrustScore,
@@ -185,6 +187,64 @@ export const demoApi = {
   lineage: async (_database_name?: string, _apiKey?: string): Promise<LineageGraph> => {
     await delay(350);
     return DEMO_LINEAGE;
+  },
+
+  lineagePolicies: async (_apiKey?: string) => {
+    await delay(200);
+    return {
+      policies: [
+        {
+          id: "match-column-full-name",
+          name: "Stitch columns by matching full name",
+          rule_type: "match_full_name",
+          enabled: true,
+        },
+        {
+          id: "match-logical-attribute",
+          name: "Stitch by logical attribute name",
+          rule_type: "match_logical_attribute",
+          enabled: true,
+        },
+      ],
+    };
+  },
+
+  applyLineagePolicies: async (_apiKey?: string) => {
+    await delay(500);
+    return { policies_run: 2, edges_added: 1, results: [] };
+  },
+
+  nlUpdateLineagePolicy: async (
+    body: {
+      instruction: string;
+      no_llm?: boolean;
+      dry_run?: boolean;
+      apply_after?: boolean;
+    },
+    _apiKey?: string,
+  ): Promise<LineageNlUpdateResult> => {
+    await delay(body.no_llm ? 400 : 1000);
+    const policy: LineagePolicy = {
+      id: "demo-policy",
+      name: body.instruction.toLowerCase().includes("full name")
+        ? "Stitch columns by matching full name"
+        : "Custom lineage policy",
+      description: body.instruction,
+      rule_type: "match_full_name",
+      enabled: true,
+      config: { cross_database: true, edge_label: "same full name" },
+    };
+    return {
+      summary: body.dry_run
+        ? `Preview: would add policy "${policy.name}"`
+        : `Added policy "${policy.name}" and stitched matching columns`,
+      dry_run: Boolean(body.dry_run),
+      applied: !body.dry_run,
+      policy,
+      apply_result: body.dry_run
+        ? undefined
+        : { policies_run: 1, edges_added: 1, results: [{ name: policy.name, edges_added: 1 }] },
+    };
   },
 
   qualityRules: async (_params?: {

@@ -11,6 +11,9 @@ KNOWLEDGE_BASE_PATH = BACKEND_DIR / "governance_knowledge.md"
 
 DATA_DIR.mkdir(exist_ok=True)
 
+# Legacy one-time import path; active policies live in governance.db (lineage_policies table)
+LINEAGE_POLICIES_PATH = DATA_DIR / "lineage_policies.json"
+
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
     f"sqlite:///{(DATA_DIR / 'governance.db').as_posix()}",
