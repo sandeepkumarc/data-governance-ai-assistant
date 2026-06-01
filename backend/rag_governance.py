@@ -191,7 +191,7 @@ def field_document(field: FieldMetadata) -> str:
     )
 
 
-def retrieve_context(field: FieldMetadata, chunks: list[KnowledgeChunk], top_k: int = 3) -> list[KnowledgeChunk]:
+def retrieve_context_tfidf(field: FieldMetadata, chunks: list[KnowledgeChunk], top_k: int = 3) -> list[KnowledgeChunk]:
     query_tokens = tokenize(field_document(field))
     query_counts = count_terms(query_tokens)
     chunk_tokens = [tokenize(chunk.text) for chunk in chunks]
@@ -204,6 +204,47 @@ def retrieve_context(field: FieldMetadata, chunks: list[KnowledgeChunk], top_k: 
         score = cosine_tfidf(query_counts, counts, doc_freq, total_docs)
         scored.append((score, chunk))
 
+    scored.sort(key=lambda item: item[0], reverse=True)
+    return [chunk for score, chunk in scored[:top_k] if score > 0]
+
+
+def retrieve_context(field: FieldMetadata, chunks: list[KnowledgeChunk], top_k: int = 3) -> list[KnowledgeChunk]:
+    return retrieve_context_tfidf(field, chunks, top_k=top_k)
+
+
+def embed_text_ollama(text: str, model: str, base_url: str) -> list[float]:
+    payload = {"model": model, "prompt": text}
+    data = post_json(f"{base_url.rstrip('/')}/api/embeddings", payload)
+    embedding = data.get("embedding")
+    if not isinstance(embedding, list) or not embedding:
+        raise ValueError("Ollama embeddings response did not include a vector")
+    return [float(value) for value in embedding]
+
+
+def cosine_similarity_vectors(left: list[float], right: list[float]) -> float:
+    if not left or not right or len(left) != len(right):
+        return 0.0
+    dot = sum(a * b for a, b in zip(left, right))
+    left_norm = math.sqrt(sum(a * a for a in left))
+    right_norm = math.sqrt(sum(b * b for b in right))
+    if left_norm == 0 or right_norm == 0:
+        return 0.0
+    return dot / (left_norm * right_norm)
+
+
+def retrieve_context_vector(
+    field: FieldMetadata,
+    indexed_chunks: list[tuple[KnowledgeChunk, list[float]]],
+    *,
+    top_k: int = 3,
+    embedding_model: str,
+    base_url: str,
+) -> list[KnowledgeChunk]:
+    query_vector = embed_text_ollama(field_document(field), embedding_model, base_url)
+    scored: list[tuple[float, KnowledgeChunk]] = []
+    for chunk, vector in indexed_chunks:
+        score = cosine_similarity_vectors(query_vector, vector)
+        scored.append((score, chunk))
     scored.sort(key=lambda item: item[0], reverse=True)
     return [chunk for score, chunk in scored[:top_k] if score > 0]
 
@@ -475,9 +516,29 @@ def analyze_field(
     model: str,
     base_url: str,
     no_llm: bool,
+    *,
+    retrieval_mode: str = "tfidf",
+    embedding_model: str = "nomic-embed-text",
+    indexed_chunks: list[tuple[KnowledgeChunk, list[float]]] | None = None,
 ) -> dict[str, object]:
-    context = retrieve_context(field, chunks)
+    mode_used = retrieval_mode
+    context: list[KnowledgeChunk]
+    if retrieval_mode == "vector" and indexed_chunks:
+        try:
+            context = retrieve_context_vector(
+                field,
+                indexed_chunks,
+                embedding_model=embedding_model,
+                base_url=base_url,
+            )
+        except Exception:
+            mode_used = "tfidf"
+            context = retrieve_context_tfidf(field, chunks)
+    else:
+        context = retrieve_context_tfidf(field, chunks)
+
     fallback = heuristic_recommendation(field, context)
+    fallback["retrieval_mode"] = mode_used
 
     if no_llm:
         return fallback
@@ -494,6 +555,7 @@ def analyze_field(
         result = parse_json_response(response)
         result["retrieved_context"] = [chunk.title for chunk in context]
         result["source"] = f"{provider}:{model}"
+        result["retrieval_mode"] = mode_used
         return result
     except (urllib.error.URLError, TimeoutError, KeyError, json.JSONDecodeError, ValueError) as exc:
         fallback["llm_error"] = str(exc)

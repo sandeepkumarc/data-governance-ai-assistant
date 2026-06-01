@@ -27,3 +27,12 @@ outputs/
 # Local secrets/config
 .env
 .env.*
+
+# Local SQLite database
+backend/data/*.db
+
+# Node / frontend
+demo-ui/node_modules/
+demo-ui/dist/
+demo-ui/.vite/
+demo-ui/tsconfig.tsbuildinfo

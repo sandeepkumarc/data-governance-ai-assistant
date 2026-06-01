@@ -4,6 +4,16 @@ An offline-capable data governance assistant that reads database field metadata,
 
 This project is designed as a practical prototype for data stewards and governance teams evaluating how local LLMs and RAG can accelerate metadata enrichment without sending prompts to a cloud LLM provider.
 
+## Documentation (executive demo & handoff)
+
+| Doc | Purpose |
+|-----|---------|
+| [docs/EXECUTIVE_DEMO_DECK.md](docs/EXECUTIVE_DEMO_DECK.md) | 15-slide executive presentation + demo script |
+| [docs/WINDOWS_DEMO_INSTALL.md](docs/WINDOWS_DEMO_INSTALL.md) | Windows laptop install for demo day |
+| [docs/PROJECT_HANDOFF.md](docs/PROJECT_HANDOFF.md) | Full project state, architecture, next steps (AI/human continuity) |
+| [demo-ui/README.md](demo-ui/README.md) | GovernAI React demo UI |
+| [AGENTS.md](AGENTS.md) | Instructions for AI assistants resuming work |
+
 ## What It Does
 
 - Upload or process CSV metadata for database fields.
@@ -157,15 +167,20 @@ python3 rag_governance.py \
 
 Each result includes:
 
-- `definition`
-- `likely_purpose`
-- `data_classification`
-- `sensitivity`
-- `governance_actions`
-- `retrieved_context`
-- `sample_values_masked`
-- `masking_reasons`
-- `source`
+- `table_description` (Brief inferred description of the table)
+- `glossary_term` (Proposed business glossary term)
+- `glossary_term_description` (Business definition of the glossary term)
+- `logical_data_attribute_name` (Logical attribute name mapped from the column)
+- `logical_data_attribute_description` (Description of the logical attribute)
+- `definition` (One-sentence business definition of the field)
+- `likely_purpose` (How the field is likely used in business)
+- `data_classification` (e.g. Public, Internal, Confidential, Restricted)
+- `sensitivity` (Low, Medium, High)
+- `governance_actions` (Actionable governance checklist)
+- `retrieved_context` (Relevant knowledge-base section headers)
+- `sample_values_masked` (Boolean flag showing if values were masked)
+- `masking_reasons` (List of masking categories applied)
+- `source` (Method/model used to generate results)
 
 ## Steward Review Model
 
@@ -186,7 +201,7 @@ The assistant creates draft suggestions. A data steward should review and approv
 
 ## Roadmap
 
-- Add business glossary term generation as a separate output.
+- [x] Add business glossary term generation as a separate output.
 - Add approval status and steward comments.
 - Add vector search for semantic RAG retrieval.
 - Add Collibra export mapping.
