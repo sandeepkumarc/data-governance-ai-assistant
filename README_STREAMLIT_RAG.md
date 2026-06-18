@@ -1,6 +1,6 @@
-# Data Governance RAG Assistant UI
+# Data Governance RAG Assistant UI (Legacy)
 
-This Streamlit app lets data stewards test the RAG version without using command-line arguments.
+This Streamlit app lets data stewards test the RAG version without using command-line arguments. It now connects to the new FastAPI backend at `http://localhost:8000`.
 
 ## What The App Does
 
@@ -39,7 +39,7 @@ On Windows, use:
 python -m pip install -r requirements-streamlit.txt
 ```
 
-## Start Ollama
+## Start Ollama (Optional)
 
 For full LLM testing, make sure Ollama has a local model:
 
@@ -77,6 +77,8 @@ This lets stewards see whether masking was applied without exposing the original
 
 ## Run The App
 
+**Note:** This Streamlit UI is now a legacy client for the new FastAPI backend. For the full experience, use the React web UI at `http://localhost:5173`.
+
 Mac:
 
 ```bash
@@ -104,3 +106,15 @@ http://localhost:8501
 5. Review `retrieved_context`.
 6. Download the result CSV.
 7. Switch to `RAG + Local LLM` when Ollama is ready.
+
+## Alternative: Use the New Web UI
+
+For the full data governance platform with all features:
+
+```bash
+./scripts/restart.sh
+```
+
+Open: http://127.0.0.1:5173
+
+Login: `steward@governance.local` / `govassist`

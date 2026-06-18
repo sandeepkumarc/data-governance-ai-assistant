@@ -1,6 +1,6 @@
 # AI-Assisted Data Governance — Data Governance Platform
 
-A production-oriented, local-first data governance platform. AI-Assisted Data Governance reads field metadata, retrieves approved policy guidance from your knowledge base, masks sensitive samples, and drafts steward-ready definitions and classifications—with optional local LLM enrichment via Ollama.
+A production-ready, local-first data governance platform. AI-Assisted Data Governance reads field metadata, retrieves approved policy guidance from your knowledge base, masks sensitive samples, and drafts steward-ready definitions and classifications—with optional local LLM enrichment via Ollama.
 
 Built for data stewards and governance teams who need policy-grounded metadata enrichment without sending prompts to a cloud LLM provider.
 
@@ -16,14 +16,13 @@ Built for data stewards and governance teams who need policy-grounded metadata e
 
 ## What It Does
 
-- Upload or process CSV metadata for database fields.
-- Reads database name, table name, column name, data type, sample values, and notes.
-- Masks sensitive sample values before retrieval and prompting.
-- Retrieves relevant sections from a local governance knowledge base.
-- Generates draft field definitions, likely purpose, classification, sensitivity, and governance actions.
-- Supports RAG-only mode without an LLM.
-- Supports local LLM generation through Ollama.
-- Provides a Streamlit UI for steward testing and CSV download.
+- Ingests CSV field metadata (database, table, column, type, samples, notes)
+- Retrieves relevant sections from `backend/governance_knowledge.md` (RAG)
+- Masks sensitive sample values before processing
+- Drafts glossary terms, classifications, sensitivity, governance actions
+- Persists definitions, lineage, quality rules, trust scores, audit log
+- Supports steward approval workflow and Collibra CSV export
+- Lineage stitching knowledge base: `backend/lineage_knowledge.md` + `lineage_policies` DB table
 
 ## Why This Matters
 
@@ -32,28 +31,22 @@ Data stewards often need to define many fields with limited context. This assist
 ## Architecture
 
 ```text
-Metadata CSV
-  + dataset context
-  + governance_knowledge.md
-        |
-        v
-Sample value masking
-        |
-        v
-RAG retrieval over governance guidance
-        |
-        v
-RAG only fallback or local Gemma/Llama through Ollama
-        |
-        v
-Draft definitions + classifications + CSV download
+web-ui (React, :5173)  →  FastAPI backend (:8000)  →  SQLite governance.db
+                               ↓
+                          rag_governance.py
+                               ↓
+                     governance_knowledge.md
+                               ↓
+                     Ollama (:11434) — optional
+                       • gemma4:e2b (LLM)
+                       • nomic-embed-text (embeddings)
 ```
 
 ## Key Features
 
 ### Local RAG
 
-`governance_knowledge.md` acts as the local knowledge base. The script splits it into sections by `##` headings and retrieves the most relevant sections for each field using token similarity.
+`backend/governance_knowledge.md` acts as the live policy knowledge base. The script splits it into sections by `##` headings and retrieves the most relevant sections for each field using token similarity.
 
 ### Local LLM
 
@@ -80,15 +73,42 @@ customer_comments -> [FREE_TEXT_VALUE]
 
 The downloaded CSV includes masking status and masking reasons.
 
+### Vector Semantic Retrieval
+
+Uses `nomic-embed-text` embeddings for semantic matching and abbreviation detection.
+
+### Collibra Export
+
+Generates CSV/JSON exports compatible with Collibra data catalog.
+
+### Steward Approval Workflow
+
+Full approval/rejection workflow with audit trail and comments.
+
 ## Files
 
-- `streamlit_rag_app.py` - steward-friendly Streamlit UI
-- `rag_governance.py` - RAG engine and command-line utility
-- `governance_knowledge.md` - local governance knowledge base
-- `clinical_ehr_patients.csv` - practical table export for demos (header row + sample records)
-- `sample_metadata.csv` - column-catalog format (still supported for bulk metadata)
-- `requirements-streamlit.txt` - Streamlit dependency
-- `README_STREAMLIT_RAG.md` - detailed UI run guide
+### Backend (FastAPI API)
+
+- `backend/main.py` - FastAPI app entry
+- `backend/rag_governance.py` - RAG engine, TF-IDF + vector retrieval, Ollama calls
+- `backend/governance_knowledge.md` - Live policy knowledge base
+- `backend/services/` - Modular services (knowledge, vector_store, semantic_mapping, etc.)
+- `backend/routers/` - API endpoints
+- `backend/data/governance.db` - SQLite database (gitignored)
+- `backend/sample_metadata.csv` - Column-catalog format
+- `backend/sample_healthcare_metadata.csv` - Healthcare example
+
+### Web UI (React)
+
+- `web-ui/` - Full React SPA with 10+ screens
+- `web-ui/src/` - Source code
+- `web-ui/public/` - Static assets
+
+### Legacy Components (still supported)
+
+- `streamlit_rag_app.py` - Streamlit UI (8 tabs)
+- `governance_api_client.py` - Python HTTP client for Streamlit
+- `README_STREAMLIT_RAG.md` - Detailed UI run guide
 
 ## Input Format
 
@@ -106,36 +126,36 @@ Example:
 customer_db,customers,email_address,string,alex@example.com|sam@company.com,Used for customer login and notifications
 ```
 
-## Run The Streamlit UI
+## Run The Platform
 
-Install dependency:
+### Terminal 1 — Backend
 
 ```bash
-python3 -m pip install -r requirements-streamlit.txt
+cd backend && source ../.venv/bin/activate
+unset DATABASE_URL                 # use SQLite unless Postgres is intentional
+python -c "from db.session import init_db; init_db()"
+uvicorn main:app --reload --port 8000
 ```
 
-Start the app:
+### Terminal 2 — Web UI
 
 ```bash
-streamlit run streamlit_rag_app.py
+cd web-ui && npm install && npm run dev
 ```
 
 Open:
 
 ```text
-http://localhost:8501
+http://127.0.0.1:5173
 ```
 
-Recommended first test:
+### Alternative: One-command setup
 
-1. Upload `clinical_ehr_patients.csv` (or any table export with a few sample rows).
-2. Keep `governance_knowledge.md` as the knowledge base.
-3. Start with `RAG only`.
-4. Generate results.
-5. Review retrieved context and masking reasons.
-6. Download the CSV.
+```bash
+./scripts/restart.sh          # API :8000 + UI :5173
+```
 
-## Run From Command Line
+## Run From Command Line (Legacy)
 
 RAG only:
 
@@ -196,6 +216,7 @@ The assistant creates draft suggestions. A data steward should review and approv
 - Outputs are review artifacts, not final policy decisions.
 
 ## Screenshots
+
 ![Upload and settings](docs/images/Screenshot1.png)
 
 ![Results table](docs/images/Screenshot2.png)
