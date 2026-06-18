@@ -1,0 +1,5 @@
+customer_id,email_address,date_of_birth,phone_number,loyalty_status
+C12345,alex@example.com,1988-03-15,555-0101,gold
+C99881,sam@company.com,1974-11-02,555-0102,silver
+C45112,jordan@test.org,2001-09-30,555-0103,bronze
+C77201,casey@example.net,1995-07-18,555-0104,gold

@@ -154,7 +154,7 @@ This is a prototype for governance workflow experimentation. Do not upload produ
 
 ![Upload and settings](docs/images/Pasted\ Graphic.png)
 
-![Results table](docs/images/Pasted\ Graphic\ 1.png)
+![Results table](Pasted Graphic 1.pngg)
 
 ![Dashboard](docs/images/Pasted\ Graphic\ 2.png)
 

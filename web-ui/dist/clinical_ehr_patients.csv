@@ -1,0 +1,5 @@
+mrn,patient_id,date_of_birth,patient_email,primary_diagnosis_icd10
+MRN-104928,PT-8842,1975-08-12,patient1@example.com,E11.9
+MRN-220011,PT-9931,1990-03-22,patient2@example.com,I10
+MRN-330177,PT-12004,2018-01-05,patient3@example.com,J45.909
+MRN-551002,PT-551002,1962-11-30,patient4@example.com,N18.3
