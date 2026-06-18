@@ -1,17 +1,17 @@
-# Data Governance RAG Assistant
+# AI-Assisted Data Governance — Data Governance Platform
 
-An offline-capable data governance assistant that reads database field metadata, retrieves relevant governance guidance, masks sensitive sample values, and drafts stewardship-ready field definitions and classifications.
+A production-oriented, local-first data governance platform. AI-Assisted Data Governance reads field metadata, retrieves approved policy guidance from your knowledge base, masks sensitive samples, and drafts steward-ready definitions and classifications—with optional local LLM enrichment via Ollama.
 
-This project is designed as a practical prototype for data stewards and governance teams evaluating how local LLMs and RAG can accelerate metadata enrichment without sending prompts to a cloud LLM provider.
+Built for data stewards and governance teams who need policy-grounded metadata enrichment without sending prompts to a cloud LLM provider.
 
-## Documentation (executive demo & handoff)
+## Documentation (executive overview & handoff)
 
 | Doc | Purpose |
 |-----|---------|
-| [docs/EXECUTIVE_DEMO_DECK.md](docs/EXECUTIVE_DEMO_DECK.md) | 15-slide executive presentation + demo script |
-| [docs/WINDOWS_DEMO_INSTALL.md](docs/WINDOWS_DEMO_INSTALL.md) | Windows laptop install for demo day |
+| [docs/EXECUTIVE_OVERVIEW.md](docs/EXECUTIVE_OVERVIEW.md) | 15-slide executive presentation + walkthrough script |
+| [docs/WINDOWS_INSTALL.md](docs/WINDOWS_INSTALL.md) | Windows laptop install for presentation day |
 | [docs/PROJECT_HANDOFF.md](docs/PROJECT_HANDOFF.md) | Full project state, architecture, next steps (AI/human continuity) |
-| [demo-ui/README.md](demo-ui/README.md) | GovernAI React demo UI |
+| [web-ui/README.md](web-ui/README.md) | AI-Assisted Data Governance React web UI |
 | [AGENTS.md](AGENTS.md) | Instructions for AI assistants resuming work |
 
 ## What It Does
@@ -85,7 +85,8 @@ The downloaded CSV includes masking status and masking reasons.
 - `streamlit_rag_app.py` - steward-friendly Streamlit UI
 - `rag_governance.py` - RAG engine and command-line utility
 - `governance_knowledge.md` - local governance knowledge base
-- `sample_metadata.csv` - safe sample metadata for testing
+- `clinical_ehr_patients.csv` - practical table export for demos (header row + sample records)
+- `sample_metadata.csv` - column-catalog format (still supported for bulk metadata)
 - `requirements-streamlit.txt` - Streamlit dependency
 - `README_STREAMLIT_RAG.md` - detailed UI run guide
 
@@ -127,7 +128,7 @@ http://localhost:8501
 
 Recommended first test:
 
-1. Upload `sample_metadata.csv`.
+1. Upload `clinical_ehr_patients.csv` (or any table export with a few sample rows).
 2. Keep `governance_knowledge.md` as the knowledge base.
 3. Start with `RAG only`.
 4. Generate results.
@@ -191,7 +192,7 @@ The assistant creates draft suggestions. A data steward should review and approv
 - Runs locally for prototype testing.
 - Does not require a cloud LLM API.
 - Masks sensitive sample values before prompting.
-- Uses safe sample metadata for demos.
+- Uses safe sample metadata for fast analysis.
 - Outputs are review artifacts, not final policy decisions.
 
 ## Screenshots

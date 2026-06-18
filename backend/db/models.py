@@ -42,6 +42,9 @@ class FieldDefinition(Base):
     sensitivity: Mapped[str] = mapped_column(String(64), default="")
     governance_actions: Mapped[list] = mapped_column(JSON, default=list)
     retrieved_context: Mapped[list] = mapped_column(JSON, default=list)
+    policy_citations: Mapped[list] = mapped_column(JSON, default=list)
+    decision_rationale: Mapped[str] = mapped_column(Text, default="")
+    regulatory_tags: Mapped[list] = mapped_column(JSON, default=list)
     sample_values_masked: Mapped[bool] = mapped_column(Boolean, default=False)
     masking_reasons: Mapped[list] = mapped_column(JSON, default=list)
     source: Mapped[str] = mapped_column(String(128), default="")
@@ -50,6 +53,10 @@ class FieldDefinition(Base):
     steward_comment: Mapped[str] = mapped_column(Text, default="")
     approved_by: Mapped[str] = mapped_column(String(255), default="")
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    collibra_asset_id: Mapped[str] = mapped_column(String(64), default="")
+    collibra_sync_status: Mapped[str] = mapped_column(String(32), default="", index=True)
+    collibra_matches: Mapped[list] = mapped_column(JSON, default=list)
+    collibra_recommended_action: Mapped[str] = mapped_column(String(32), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
@@ -149,6 +156,7 @@ class QualityRule(Base):
     rule_name: Mapped[str] = mapped_column(String(255), nullable=False)
     rule_type: Mapped[str] = mapped_column(String(64), default="")
     description: Mapped[str] = mapped_column(Text, default="")
+    reasoning: Mapped[str] = mapped_column(Text, default="")
     threshold: Mapped[str] = mapped_column(String(32), default="100%")
     status: Mapped[str] = mapped_column(String(32), default="Suggested", index=True)
     failure_count: Mapped[int] = mapped_column(Integer, default=0)
@@ -170,6 +178,69 @@ class TrustScore(Base):
     status: Mapped[str] = mapped_column(String(32), default="Unknown", index=True)
     steward_assigned: Mapped[str] = mapped_column(String(255), default="")
     last_profiled: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class GovernancePrinciple(Base):
+    __tablename__ = "governance_principles"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str] = mapped_column(Text, default="")
+    rule_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    weight: Mapped[int] = mapped_column(Integer, default=25)
+    config: Mapped[dict] = mapped_column(JSON, default=dict)
+    source: Mapped[str] = mapped_column(String(32), default="system")
+    nl_instruction: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class GovernanceReadinessConfig(Base):
+    __tablename__ = "governance_readiness_config"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default="default")
+    readiness_note: Mapped[str] = mapped_column(Text, default="")
+    thresholds: Mapped[dict] = mapped_column(JSON, default=dict)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class MaturityConfig(Base):
+    __tablename__ = "maturity_config"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default="default")
+    domain_labels: Mapped[dict] = mapped_column(JSON, default=dict)
+    dimension_weights: Mapped[dict] = mapped_column(JSON, default=dict)
+    axis_principle_map: Mapped[dict] = mapped_column(JSON, default=dict)
+    collibra_max_assets: Mapped[int] = mapped_column(Integer, default=3000)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class CollibraMaturitySnapshot(Base):
+    __tablename__ = "collibra_maturity_snapshots"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default="latest")
+    asset_count: Mapped[int] = mapped_column(Integer, default=0)
+    domain_count: Mapped[int] = mapped_column(Integer, default=0)
+    payload: Mapped[dict] = mapped_column(JSON, default=dict)
+    synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class HelpDeskQuestion(Base):
+    __tablename__ = "help_desk_questions"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    question: Mapped[str] = mapped_column(Text, nullable=False)
+    user_email: Mapped[str] = mapped_column(String(255), default="", index=True)
+    user_name: Mapped[str] = mapped_column(String(255), default="")
+    page_context: Mapped[str] = mapped_column(String(128), default="")
+    assistant_confidence: Mapped[str] = mapped_column(String(32), default="unknown", index=True)
+    assistant_preview: Mapped[str] = mapped_column(Text, default="")
+    catalog_snapshot: Mapped[str] = mapped_column(Text, default="")
+    status: Mapped[str] = mapped_column(String(32), default="open", index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 

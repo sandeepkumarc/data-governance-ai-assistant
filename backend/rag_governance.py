@@ -42,6 +42,19 @@ class KnowledgeChunk:
 
 
 @dataclass(frozen=True)
+class TfidfIndex:
+    """Precomputed token statistics for the knowledge base (built once per analyze batch)."""
+
+    chunks: list[KnowledgeChunk]
+    chunk_counts: list[dict[str, int]]
+    doc_freq: dict[str, int]
+    total_docs: int
+
+
+_KB_FILE_CACHE: tuple[float, list[KnowledgeChunk]] | None = None
+
+
+@dataclass(frozen=True)
 class MaskedValue:
     value: str
     reason: str
@@ -175,6 +188,29 @@ def read_knowledge_base(path: Path) -> list[KnowledgeChunk]:
     return [chunk for chunk in chunks if chunk.text]
 
 
+def read_knowledge_base_cached(path: Path) -> list[KnowledgeChunk]:
+    """Load knowledge base chunks; reuse in-memory cache when file mtime unchanged."""
+    global _KB_FILE_CACHE
+    mtime = path.stat().st_mtime
+    if _KB_FILE_CACHE is not None and _KB_FILE_CACHE[0] == mtime:
+        return _KB_FILE_CACHE[1]
+    chunks = read_knowledge_base(path)
+    _KB_FILE_CACHE = (mtime, chunks)
+    return chunks
+
+
+def build_tfidf_index(chunks: list[KnowledgeChunk]) -> TfidfIndex:
+    chunk_tokens = [tokenize(chunk.text) for chunk in chunks]
+    chunk_counts = [count_terms(tokens) for tokens in chunk_tokens]
+    doc_freq = document_frequency(chunk_counts)
+    return TfidfIndex(
+        chunks=chunks,
+        chunk_counts=chunk_counts,
+        doc_freq=doc_freq,
+        total_docs=len(chunks),
+    )
+
+
 def field_document(field: FieldMetadata) -> str:
     samples = ", ".join(field.sample_values[:8])
     name_tokens = " ".join(tokenize(f"{field.table_name} {field.column_name}"))
@@ -208,12 +244,79 @@ def retrieve_context_tfidf(field: FieldMetadata, chunks: list[KnowledgeChunk], t
     return [chunk for score, chunk in scored[:top_k] if score > 0]
 
 
+def retrieve_context_tfidf_scored(
+    field: FieldMetadata,
+    chunks: list[KnowledgeChunk] | None = None,
+    top_k: int = 3,
+    *,
+    tfidf_index: TfidfIndex | None = None,
+) -> list[tuple[KnowledgeChunk, float]]:
+    index = tfidf_index or build_tfidf_index(chunks or [])
+    query_counts = count_terms(tokenize(field_document(field)))
+
+    scored: list[tuple[float, KnowledgeChunk]] = []
+    for chunk, counts in zip(index.chunks, index.chunk_counts):
+        score = cosine_tfidf(query_counts, counts, index.doc_freq, index.total_docs)
+        scored.append((score, chunk))
+
+    scored.sort(key=lambda item: item[0], reverse=True)
+    return [(chunk, score) for score, chunk in scored[:top_k] if score > 0]
+
+
 def retrieve_context(field: FieldMetadata, chunks: list[KnowledgeChunk], top_k: int = 3) -> list[KnowledgeChunk]:
-    return retrieve_context_tfidf(field, chunks, top_k=top_k)
+    return [chunk for chunk, _ in retrieve_context_tfidf_scored(field, chunks=chunks, top_k=top_k)]
 
 
-def embed_text_ollama(text: str, model: str, base_url: str) -> list[float]:
-    payload = {"model": model, "prompt": text}
+def citation_excerpt(chunk: KnowledgeChunk, max_len: int = 280) -> str:
+    lines = chunk.text.splitlines()
+    body = "\n".join(line for line in lines if not line.startswith("## ")).strip()
+    body = re.sub(r"\s+", " ", body)
+    if len(body) <= max_len:
+        return body
+    return body[: max_len - 3].rstrip() + "..."
+
+
+def build_policy_citations(scored_chunks: list[tuple[KnowledgeChunk, float]]) -> list[dict[str, object]]:
+    citations: list[dict[str, object]] = []
+    for chunk, score in scored_chunks:
+        citations.append(
+            {
+                "section": chunk.title,
+                "excerpt": citation_excerpt(chunk),
+                "relevance_score": round(float(score), 4),
+            }
+        )
+    return citations
+
+
+def build_decision_rationale(
+    *,
+    classification: str,
+    sensitivity: str,
+    citations: list[dict[str, object]],
+    regulatory_tags: list[str] | None = None,
+) -> str:
+    if not citations:
+        return (
+            f"Assigned {classification} / {sensitivity} using built-in heuristics only — "
+            "no knowledge-base sections matched above the retrieval threshold."
+        )
+    section_list = ", ".join(f'"{c["section"]}"' for c in citations)
+    tags = ""
+    if regulatory_tags:
+        tags = f" Regulatory tags: {', '.join(regulatory_tags)}."
+    top = citations[0]["section"]
+    return (
+        f"Assigned {classification} with {sensitivity} sensitivity primarily from policy section "
+        f'"{top}" (plus {max(0, len(citations) - 1)} supporting section(s): {section_list}).{tags}'
+    )
+
+
+def embed_text_ollama(text: str, model: str, base_url: str, *, max_chars: int = 1800) -> list[float]:
+    prompt = text.strip()
+    if len(prompt) > max_chars:
+        prompt = prompt[: max_chars - 3].rstrip() + "..."
+    payload = {"model": model, "prompt": prompt}
     data = post_json(f"{base_url.rstrip('/')}/api/embeddings", payload)
     embedding = data.get("embedding")
     if not isinstance(embedding, list) or not embedding:
@@ -239,14 +342,20 @@ def retrieve_context_vector(
     top_k: int = 3,
     embedding_model: str,
     base_url: str,
-) -> list[KnowledgeChunk]:
-    query_vector = embed_text_ollama(field_document(field), embedding_model, base_url)
+    query_embed_cache: dict[str, list[float]] | None = None,
+) -> list[tuple[KnowledgeChunk, float]]:
+    doc = field_document(field)
+    cache = query_embed_cache if query_embed_cache is not None else {}
+    if doc not in cache:
+        cache[doc] = embed_text_ollama(doc, embedding_model, base_url)
+    query_vector = cache[doc]
+
     scored: list[tuple[float, KnowledgeChunk]] = []
     for chunk, vector in indexed_chunks:
         score = cosine_similarity_vectors(query_vector, vector)
         scored.append((score, chunk))
     scored.sort(key=lambda item: item[0], reverse=True)
-    return [chunk for score, chunk in scored[:top_k] if score > 0]
+    return [(chunk, score) for score, chunk in scored[:top_k] if score > 0]
 
 
 def count_terms(tokens: Iterable[str]) -> dict[str, int]:
@@ -289,6 +398,8 @@ def cosine_tfidf(
 
 
 def heuristic_recommendation(field: FieldMetadata, context: list[KnowledgeChunk]) -> dict[str, object]:
+    from services.glossary_resolver import resolve_business_glossary
+
     haystack = " ".join(
         [
             field.database_name,
@@ -302,123 +413,135 @@ def heuristic_recommendation(field: FieldMetadata, context: list[KnowledgeChunk]
 
     classification = "Internal"
     sensitivity = "Low"
-    definition = (
-        f"{field.column_name} is a field in {field.database_name}.{field.table_name} "
-        "that stores a business attribute used by the owning application or reporting process."
-    )
     likely_purpose = "Business attribute used by the owning application or reporting process."
-    
     table_desc = f"Contains records and attributes for {field.table_name}."
-    glossary_term = field.column_name.replace("_", " ").title()
-    glossary_term_desc = f"Business term representing the {glossary_term} details."
-    logical_attr_name = field.column_name.lower()
-    logical_attr_desc = f"Logical representation of the {field.column_name} column."
-
-    if has_any(haystack, ["password", "secret", "token", "api_key", "session"]):
+    regulatory_tags: list[str] = []
+    if has_any(
+        haystack,
+        [
+            "patient",
+            "mrn",
+            "medical_record",
+            "diagnosis",
+            "icd",
+            "icd10",
+            "loinc",
+            "ndc",
+            "rx",
+            "medication",
+            "lab_result",
+            "lab_",
+            "encounter",
+            "admission",
+            "discharge",
+            "vital",
+            "phi",
+            "hipaa",
+            "claim",
+            "hcpcs",
+            "drg",
+            "beneficiary",
+            "member_id",
+            "subscriber",
+            "provider_npi",
+            "rendering_npi",
+            "npi",
+            "sud",
+            "substance",
+            "behavioral_health",
+            "clinical_ehr",
+            "claims_payer",
+        ],
+    ):
         classification = "Restricted"
         sensitivity = "High"
-        definition = (
-            f"{field.column_name} stores a security-related value, such as a token, secret, "
-            "session identifier, or credential-supporting attribute."
-        )
+        likely_purpose = "Clinical care, claims, payment, quality reporting, or compliance — minimum necessary access only."
+        regulatory_tags = ["HIPAA-PHI"]
+        if has_any(haystack, ["sud", "substance", "methadone", "otp", "42cfr", "part2", "part_2"]):
+            regulatory_tags.append("42-CFR-Part-2")
+        if has_any(haystack, ["icd", "hcpcs", "cpt", "loinc", "snomed", "ndc", "drg"]):
+            regulatory_tags.append("Clinical-Code-Set")
+        if has_any(haystack, ["member_id", "subscriber", "claim", "billed", "allowed", "payer"]):
+            regulatory_tags.append("CMS-Claims")
+    elif has_any(haystack, ["password", "secret", "token", "api_key", "session"]):
+        classification = "Restricted"
+        sensitivity = "High"
         likely_purpose = "Authentication, authorization, or secure system operation."
-        glossary_term = "Security Secret Token"
-        glossary_term_desc = "A secure identifier, key, or token used for authentication and security purposes."
-        logical_attr_name = "security_credential_token"
-        logical_attr_desc = "Logical attribute representing authentication credentials or session tokens."
     elif re.search(r"(^|[_\s-])(id|identifier)$", field.column_name.lower()) or has_any(
         haystack,
         ["customer_id", "employee_id", "user_id", "account_id", "member_id", "patient_id"],
     ):
         classification = "Confidential"
         sensitivity = "Medium"
-        definition = (
-            f"{field.column_name} is an identifier for records or entities in "
-            f"{field.database_name}.{field.table_name}."
-        )
         likely_purpose = "Unique identifier used to link records, entities, transactions, or profiles."
-        glossary_term = "Entity Identifier"
-        glossary_term_desc = "A unique identifier used to distinguish individual entity records."
-        logical_attr_name = "entity_identifier_id"
-        logical_attr_desc = "Logical data attribute uniquely identifying an entity record."
     elif has_any(haystack, ["ssn", "social", "passport", "driver_license", "tax_id"]):
         classification = "Restricted"
         sensitivity = "High"
-        definition = (
-            f"{field.column_name} stores a regulated direct identifier used to identify or verify "
-            "a person or account."
-        )
         likely_purpose = "Direct identification for compliance, verification, or regulated processing."
-        glossary_term = "National Identifier"
-        glossary_term_desc = "A government-issued unique identifier used for official validation and compliance."
-        logical_attr_name = "national_identity_number"
-        logical_attr_desc = "Logical attribute containing sensitive government identification details."
     elif has_any(haystack, ["comment", "note", "description", "message", "feedback"]):
         classification = "Confidential"
         sensitivity = "Medium"
-        definition = (
-            f"{field.column_name} stores free-form text captured for operational context, notes, "
-            "or user-provided details."
-        )
         likely_purpose = "Free-text operational context that may contain personal or confidential information."
-        glossary_term = "Operational Comment Notes"
-        glossary_term_desc = "Free-form text containing descriptions, user feedback, or notes."
-        logical_attr_name = "comment_description_text"
-        logical_attr_desc = "Logical attribute holding free-form textual comments and annotations."
     elif has_any(haystack, ["email", "phone", "address", "dob", "birth", "name"]):
         classification = "Confidential"
         sensitivity = "Medium"
-        definition = (
-            f"{field.column_name} stores personal profile or contact information associated with "
-            f"records in {field.database_name}.{field.table_name}."
-        )
         likely_purpose = "Personal/customer profile, contact, identification, or communication use."
-        glossary_term = "Personally Identifiable Information"
-        glossary_term_desc = "Information that can be used on its own or with other info to identify a single person."
-        logical_attr_name = "personal_contact_attribute"
-        logical_attr_desc = "Logical attribute containing personal identification or contact details."
     elif has_any(haystack, ["salary", "payment", "card", "bank", "amount", "balance", "income"]):
         classification = "Confidential"
         sensitivity = "High"
-        definition = (
-            f"{field.column_name} stores financial, payment, billing, compensation, or transaction-related data."
-        )
         likely_purpose = "Financial, payment, billing, compensation, or transaction processing."
-        glossary_term = "Financial Monetary Value"
-        glossary_term_desc = "Numeric value representing a monetary amount, charge, compensation, or balance."
-        logical_attr_name = "financial_amount_value"
-        logical_attr_desc = "Logical attribute capturing monetary transactions or balances."
     elif has_any(haystack, ["status", "state", "stage", "created_at", "updated_at"]):
-        definition = (
-            f"{field.column_name} describes the current state, lifecycle timing, or workflow progress "
-            f"of records in {field.database_name}.{field.table_name}."
-        )
         likely_purpose = "Operational workflow tracking, process state, or audit timing."
-        glossary_term = "Workflow Lifecycle Attribute"
-        glossary_term_desc = "Data indicating the status, audit timestamp, or phase of a process."
-        logical_attr_name = "process_status_timestamp"
-        logical_attr_desc = "Logical attribute indicating a state transition or timing event."
+
+    glossary = resolve_business_glossary(
+        database_name=field.database_name,
+        table_name=field.table_name,
+        column_name=field.column_name,
+    )
+    definition = glossary.definition
+    if likely_purpose == "Business attribute used by the owning application or reporting process.":
+        likely_purpose = glossary.likely_purpose
+
+    citations = build_policy_citations([(chunk, 1.0) for chunk in context])
+    if regulatory_tags:
+        actions = [
+            "Assign clinical or claims data steward and business owner.",
+            "Document permitted HIPAA purposes (treatment, payment, operations) or other lawful basis.",
+            "Apply minimum necessary access and audit logging for PHI.",
+            "Mask or de-identify before analytics; prohibit commingling Part 2 SUD data without consent.",
+            "Track lineage to downstream reports, warehouses, and business associate systems.",
+        ]
+    else:
+        actions = [
+            "Assign data owner and steward.",
+            "Document approved business uses.",
+            "Define retention and access rules.",
+            "Track lineage to downstream reports and applications.",
+        ]
 
     return {
         "database_name": field.database_name,
         "table_name": field.table_name,
         "column_name": field.column_name,
         "table_description": table_desc,
-        "glossary_term": glossary_term,
-        "glossary_term_description": glossary_term_desc,
-        "logical_data_attribute_name": logical_attr_name,
-        "logical_data_attribute_description": logical_attr_desc,
+        "glossary_term": glossary.term,
+        "glossary_term_description": glossary.term_description,
+        "logical_data_attribute_name": glossary.logical_name,
+        "logical_data_attribute_description": glossary.logical_description,
         "definition": definition,
         "likely_purpose": likely_purpose,
         "data_classification": classification,
         "sensitivity": sensitivity,
-        "governance_actions": [
-            "Assign data owner and steward.",
-            "Document approved business uses.",
-            "Define retention and access rules.",
-            "Track lineage to downstream reports and applications.",
-        ],
+        "governance_actions": actions,
         "retrieved_context": [chunk.title for chunk in context],
+        "policy_citations": citations,
+        "decision_rationale": build_decision_rationale(
+            classification=classification,
+            sensitivity=sensitivity,
+            citations=citations,
+            regulatory_tags=regulatory_tags or None,
+        ),
+        "regulatory_tags": regulatory_tags,
         "source": "retrieval_heuristic",
     }
 
@@ -449,11 +572,11 @@ Return only valid JSON with these keys:
 - reasoning
 
 The table_description should be a brief description of the table based on its name and column context.
-The glossary_term should be a possible business glossary term for this attribute (e.g. Customer Email, Payment Token, Employee Salary).
-The glossary_term_description should be a business definition for that glossary term.
-The logical_data_attribute_name should be a logical name for this database attribute (e.g. customer_email_address, payment_token_value, employee_base_salary).
-The logical_data_attribute_description should be a description for this logical data attribute.
-The definition should be one clear business-glossary sentence explaining what the field means.
+The glossary_term must be a distinct plain-language business name for THIS column only (e.g. Medical Record Number, Customer Email Address, ICD-10-CM Diagnosis Code). Never reuse a generic category label across different columns.
+The glossary_term_description should define that specific business term in plain language.
+The logical_data_attribute_name should be a unique snake_case logical name for this attribute (e.g. medical_record_number, customer_email_address).
+The logical_data_attribute_description should describe that logical attribute only.
+The definition should be one clear business sentence explaining what this specific field means in context.
 The likely_purpose should explain how the field is probably used.
 
 Field metadata:
@@ -520,24 +643,36 @@ def analyze_field(
     retrieval_mode: str = "tfidf",
     embedding_model: str = "nomic-embed-text",
     indexed_chunks: list[tuple[KnowledgeChunk, list[float]]] | None = None,
+    tfidf_index: TfidfIndex | None = None,
+    query_embed_cache: dict[str, list[float]] | None = None,
 ) -> dict[str, object]:
     mode_used = retrieval_mode
-    context: list[KnowledgeChunk]
+    scored: list[tuple[KnowledgeChunk, float]]
     if retrieval_mode == "vector" and indexed_chunks:
         try:
-            context = retrieve_context_vector(
+            scored = retrieve_context_vector(
                 field,
                 indexed_chunks,
                 embedding_model=embedding_model,
                 base_url=base_url,
+                query_embed_cache=query_embed_cache,
             )
         except Exception:
             mode_used = "tfidf"
-            context = retrieve_context_tfidf(field, chunks)
+            scored = retrieve_context_tfidf_scored(field, top_k=3, tfidf_index=tfidf_index)
     else:
-        context = retrieve_context_tfidf(field, chunks)
+        scored = retrieve_context_tfidf_scored(field, top_k=3, tfidf_index=tfidf_index)
 
+    context = [chunk for chunk, _ in scored] if scored else []
     fallback = heuristic_recommendation(field, context)
+    citations = build_policy_citations(scored)
+    fallback["policy_citations"] = citations
+    fallback["decision_rationale"] = build_decision_rationale(
+        classification=str(fallback.get("data_classification", "")),
+        sensitivity=str(fallback.get("sensitivity", "")),
+        citations=citations,
+        regulatory_tags=fallback.get("regulatory_tags") if isinstance(fallback.get("regulatory_tags"), list) else None,
+    )
     fallback["retrieval_mode"] = mode_used
 
     if no_llm:
@@ -554,6 +689,14 @@ def analyze_field(
 
         result = parse_json_response(response)
         result["retrieved_context"] = [chunk.title for chunk in context]
+        result["policy_citations"] = citations
+        if not result.get("decision_rationale"):
+            result["decision_rationale"] = build_decision_rationale(
+                classification=str(result.get("data_classification", fallback.get("data_classification", ""))),
+                sensitivity=str(result.get("sensitivity", fallback.get("sensitivity", ""))),
+                citations=citations,
+                regulatory_tags=result.get("regulatory_tags") if isinstance(result.get("regulatory_tags"), list) else None,
+            )
         result["source"] = f"{provider}:{model}"
         result["retrieval_mode"] = mode_used
         return result

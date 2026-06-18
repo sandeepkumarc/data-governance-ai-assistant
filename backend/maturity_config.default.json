@@ -1,0 +1,27 @@
+{
+  "domain_labels": {
+    "customer_db": "Customer",
+    "finance_db": "Finance",
+    "hr_db": "Human Resources",
+    "clinical_ehr": "Clinical EHR",
+    "behavioral_health": "Behavioral Health",
+    "claims_payer": "Claims & Payer"
+  },
+  "dimension_weights": {
+    "governance_stewardship": 20,
+    "metadata_definitions": 20,
+    "data_quality": 15,
+    "lineage_traceability": 15,
+    "security_classification": 15,
+    "operational_readiness": 15
+  },
+  "axis_principle_map": {
+    "governance_stewardship": ["steward-approvals", "ownership-assigned"],
+    "metadata_definitions": ["approved-definitions", "glossary-linked"],
+    "data_quality": ["dq-rules-stewarded"],
+    "lineage_traceability": [],
+    "security_classification": ["classification-coverage", "policy-citations"],
+    "operational_readiness": ["recent-activity"]
+  },
+  "collibra_max_assets": 3000
+}

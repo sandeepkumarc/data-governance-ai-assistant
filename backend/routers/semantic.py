@@ -12,7 +12,11 @@ from db.session import get_db
 from models.schemas import AnalyzePayload
 from rag_governance import FieldMetadata
 from services.definitions import save_analysis_results
-from services.semantic_mapping import parse_metadata_csv, process_fields_through_rag
+from services.semantic_mapping import (
+    infer_dataset_context,
+    parse_upload_csv,
+    process_fields_through_rag,
+)
 
 router = APIRouter(tags=["Semantic Mapping"])
 
@@ -73,6 +77,7 @@ async def analyze_metadata(
         retrieval_mode=payload.retrieval_mode,
         embedding_model=payload.embedding_model,
         session=db,
+        use_collibra=payload.use_collibra,
     )
     return _maybe_persist(
         db,
@@ -91,6 +96,8 @@ async def analyze_metadata(
 @router.post("/api/upload-metadata")
 async def upload_metadata(
     file: UploadFile = File(...),
+    database_name: str = Form(""),
+    table_name: str = Form(""),
     dataset_context: str = Form(""),
     mask_samples: bool = Form(True),
     no_llm: bool = Form(True),
@@ -100,11 +107,20 @@ async def upload_metadata(
     persist: bool = Form(True),
     retrieval_mode: str = Form("tfidf"),
     embedding_model: str = Form(DEFAULT_EMBEDDING_MODEL),
+    use_collibra: bool = Form(False),
     db: Session = Depends(get_db),
 ) -> list[dict[str, Any]]:
-    """Accept metadata CSV files, process through data governance RAG, and return results."""
+    """Accept table exports or column-catalog CSV files and return governance drafts."""
     contents = await file.read()
-    fields = parse_metadata_csv(contents.decode("utf-8"))
+    csv_text = contents.decode("utf-8")
+    if not dataset_context.strip():
+        dataset_context = infer_dataset_context(csv_text)
+    fields = parse_upload_csv(
+        csv_text,
+        filename=file.filename or "",
+        database_name=database_name,
+        table_name=table_name,
+    )
     results, run_meta = process_fields_through_rag(
         fields=fields,
         dataset_context=dataset_context,
@@ -116,6 +132,7 @@ async def upload_metadata(
         retrieval_mode=retrieval_mode,
         embedding_model=embedding_model,
         session=db,
+        use_collibra=use_collibra,
     )
     return _maybe_persist(
         db,

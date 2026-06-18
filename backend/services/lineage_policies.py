@@ -100,9 +100,60 @@ def upsert_policy(
     return policy_to_dict(row)
 
 
+PROTECTED_POLICY_IDS = frozenset({"default-db-table-column"})
+
+
+def update_policy(session: Session, policy_id: str, updates: dict[str, Any]) -> dict[str, Any]:
+    row = session.get(LineagePolicy, policy_id)
+    if row is None:
+        raise ValueError(f"Lineage policy not found: {policy_id}")
+
+    if "enabled" in updates and updates["enabled"] is not None:
+        row.enabled = bool(updates["enabled"])
+    if updates.get("name") is not None:
+        row.name = str(updates["name"])
+    if updates.get("description") is not None:
+        row.description = str(updates["description"])
+    if isinstance(updates.get("config"), dict):
+        row.config = updates["config"]
+
+    session.flush()
+    return policy_to_dict(row)
+
+
+def delete_policy(session: Session, policy_id: str) -> dict[str, Any]:
+    if policy_id in PROTECTED_POLICY_IDS:
+        raise ValueError("The structural hierarchy policy cannot be deleted.")
+
+    row = session.get(LineagePolicy, policy_id)
+    if row is None:
+        raise ValueError(f"Lineage policy not found: {policy_id}")
+
+    session.delete(row)
+    session.flush()
+    return {"deleted": policy_id}
+
+
+def sync_missing_default_policies(session: Session) -> dict[str, Any]:
+    """Insert industry / catalog policies from default JSON when their id is not in the DB."""
+    existing_ids = {
+        row.id for row in session.query(LineagePolicy.id).all()
+    }
+    added: list[str] = []
+    for policy in _default_policy_templates():
+        policy_id = str(policy.get("id", ""))
+        if not policy_id or policy_id in existing_ids:
+            continue
+        _persist_policy_row(session, policy, source="catalog")
+        added.append(policy_id)
+    session.flush()
+    return {"added": added, "count": len(added)}
+
+
 def ensure_default_policies(session: Session) -> None:
     """Seed default policies into the database when empty; migrate legacy JSON once."""
     if session.scalar(select(LineagePolicy.id).limit(1)) is not None:
+        sync_missing_default_policies(session)
         return
 
     legacy = _import_json_policies_if_present()
@@ -278,6 +329,20 @@ def apply_lineage_policies(session: Session) -> dict[str, Any]:
                 edge_label=str(config.get("edge_label", "same logical attribute")),
                 cross_database=bool(config.get("cross_database", True)),
                 match_on=["logical_data_attribute_name"],
+                definitions=definitions,
+            )
+        elif rule_type == "match_glossary_term":
+            enriched = [
+                node
+                for node in columns
+                if (d := _column_definition(node, definitions)) and d.glossary_term.strip()
+            ]
+            edges_added = _apply_match_groups(
+                session,
+                enriched,
+                edge_label=str(config.get("edge_label", "same glossary term")),
+                cross_database=bool(config.get("cross_database", True)),
+                match_on=["glossary_term"],
                 definitions=definitions,
             )
         elif rule_type == "match_table_name":

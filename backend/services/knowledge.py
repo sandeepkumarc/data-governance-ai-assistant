@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from config import KNOWLEDGE_BASE_PATH
 from db.models import KnowledgeEmbedding
-from rag_governance import KnowledgeChunk, read_knowledge_base
+from rag_governance import KnowledgeChunk, read_knowledge_base, read_knowledge_base_cached
 from services.audit import record_audit
 
 KB_HEADING = "# Data Governance Field Classification Knowledge Base"
@@ -23,7 +23,7 @@ def chunk_body(chunk: KnowledgeChunk) -> str:
 
 
 def load_sections(path: Path = KNOWLEDGE_BASE_PATH) -> list[dict[str, str]]:
-    chunks = read_knowledge_base(path)
+    chunks = read_knowledge_base_cached(path)
     return [{"title": chunk.title, "text": chunk_body(chunk)} for chunk in chunks]
 
 
