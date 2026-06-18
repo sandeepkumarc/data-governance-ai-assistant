@@ -136,7 +136,14 @@ def update_approval(
     )
     recompute_trust_score(session, row.database_name, row.table_name)
     session.commit()
-    return definition_to_dict(row)
+    result = definition_to_dict(row)
+    if approval_status == "approved":
+        from services.collibra_integration import maybe_auto_push_on_approve
+
+        maybe_auto_push_on_approve(session, definition_id)
+        session.refresh(row)
+        result = definition_to_dict(row)
+    return result
 
 
 def _apply_result_to_row(row: FieldDefinition, result: dict[str, Any]) -> None:
@@ -151,6 +158,15 @@ def _apply_result_to_row(row: FieldDefinition, result: dict[str, Any]) -> None:
     row.sensitivity = str(result.get("sensitivity", ""))
     row.governance_actions = _as_list(result.get("governance_actions"))
     row.retrieved_context = _as_list(result.get("retrieved_context"))
+    row.policy_citations = _as_list(result.get("policy_citations"))
+    row.decision_rationale = str(result.get("decision_rationale", ""))
+    row.regulatory_tags = _as_list(result.get("regulatory_tags"))
+    row.collibra_asset_id = str(result.get("collibra_asset_id", row.collibra_asset_id or ""))
+    row.collibra_sync_status = str(result.get("collibra_sync_status", row.collibra_sync_status or ""))
+    row.collibra_matches = _as_list(result.get("collibra_matches"))
+    row.collibra_recommended_action = str(
+        result.get("collibra_recommended_action", row.collibra_recommended_action or "")
+    )
     row.sample_values_masked = bool(result.get("sample_values_masked", False))
     row.masking_reasons = _as_list(result.get("masking_reasons"))
     row.source = str(result.get("source", ""))
@@ -179,6 +195,13 @@ def definition_to_dict(row: FieldDefinition) -> dict[str, Any]:
         "sensitivity": row.sensitivity,
         "governance_actions": row.governance_actions or [],
         "retrieved_context": row.retrieved_context or [],
+        "policy_citations": row.policy_citations or [],
+        "decision_rationale": row.decision_rationale or "",
+        "regulatory_tags": row.regulatory_tags or [],
+        "collibra_asset_id": row.collibra_asset_id or "",
+        "collibra_sync_status": row.collibra_sync_status or "",
+        "collibra_matches": row.collibra_matches or [],
+        "collibra_recommended_action": row.collibra_recommended_action or "",
         "sample_values_masked": row.sample_values_masked,
         "masking_reasons": row.masking_reasons or [],
         "source": row.source,

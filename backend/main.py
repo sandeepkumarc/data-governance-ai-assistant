@@ -15,7 +15,7 @@ sys.path.insert(0, str(BACKEND_DIR))
 
 from db.session import init_db
 from middleware.auth import APIKeyMiddleware
-from routers import audit, definitions, export, health, knowledge, lineage, quality, semantic, stewardship, trust
+from routers import audit, chat, collibra, data_maturity, definitions, export, governance_principles, health, knowledge, lineage, quality, semantic, stewardship, trust
 
 
 @asynccontextmanager
@@ -25,8 +25,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Data Governance AI Platform API",
-    description="Backend API serving Semantic Mapping, Lineage, Data Quality, and Stewardship features.",
+    title="AI-Assisted Data Governance API",
+    description="AI-assisted data governance — semantic mapping, lineage, quality, and steward approval workflows.",
     version="1.2.0",
     lifespan=lifespan,
 )
@@ -46,10 +46,14 @@ app.include_router(semantic.router)
 app.include_router(definitions.router)
 app.include_router(audit.router)
 app.include_router(export.router)
+app.include_router(collibra.router)
 app.include_router(lineage.router)
 app.include_router(quality.router)
 app.include_router(trust.router)
+app.include_router(governance_principles.router)
+app.include_router(data_maturity.router)
 app.include_router(stewardship.router)
+app.include_router(chat.router)
 
 
 if __name__ == "__main__":

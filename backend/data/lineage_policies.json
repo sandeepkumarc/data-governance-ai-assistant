@@ -1,0 +1,71 @@
+{
+  "policies": [
+    {
+      "id": "default-db-table-column",
+      "name": "Structural hierarchy",
+      "description": "Always link database → table → column from analyzed metadata.",
+      "enabled": true,
+      "rule_type": "structural",
+      "config": {}
+    },
+    {
+      "id": "match-column-full-name",
+      "name": "Stitch columns by matching full name",
+      "description": "Link columns across databases when column names match exactly (case-insensitive).",
+      "enabled": true,
+      "rule_type": "match_full_name",
+      "config": {
+        "node_types": ["column"],
+        "match_on": ["column_name", "label"],
+        "cross_database": true,
+        "edge_label": "same full name"
+      }
+    },
+    {
+      "id": "match-logical-attribute",
+      "name": "Stitch by logical attribute name",
+      "description": "Link columns that share the same logical data attribute from semantic mapping.",
+      "enabled": true,
+      "rule_type": "match_logical_attribute",
+      "config": {
+        "cross_database": true,
+        "edge_label": "same logical attribute"
+      }
+    },
+    {
+      "id": "match-table-name",
+      "name": "Stitch tables by matching name",
+      "description": "Link tables across databases when table names match.",
+      "enabled": true,
+      "rule_type": "match_table_name",
+      "config": {
+        "cross_database": true,
+        "edge_label": "same table name"
+      }
+    },
+    {
+      "id": "pii-to-audit-report",
+      "name": "PII columns to compliance ledger",
+      "description": "Route confidential / PII columns to the GDPR Compliance Ledger report.",
+      "enabled": true,
+      "rule_type": "keyword_to_report",
+      "config": {
+        "keywords": ["confidential", "restricted", "personal", "pii", "email", "contact"],
+        "report_id": "report_audit",
+        "edge_label": "PII scan target"
+      }
+    },
+    {
+      "id": "financial-to-sales-report",
+      "name": "Financial columns to revenue dashboard",
+      "description": "Route payment and revenue-related columns to the Sales & Revenue Dashboard.",
+      "enabled": true,
+      "rule_type": "keyword_to_report",
+      "config": {
+        "keywords": ["financial", "payment", "salary", "revenue", "amount"],
+        "report_id": "report_sales",
+        "edge_label": "revenue links"
+      }
+    }
+  ]
+}

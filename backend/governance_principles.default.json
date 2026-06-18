@@ -1,0 +1,91 @@
+{
+  "readiness_note": "Scores reflect your governing principles and steward workflow in this assistant — not statistical data quality or warehouse profiling.",
+  "thresholds": {
+    "ready": 75,
+    "in_progress": 40
+  },
+  "principles": [
+    {
+      "id": "approved-definitions",
+      "name": "Approved definitions",
+      "description": "Every column has a steward-approved business definition.",
+      "enabled": true,
+      "weight": 25,
+      "rule_type": "approved_definitions",
+      "config": { "require_non_empty_definition": true }
+    },
+    {
+      "id": "dq-rules-stewarded",
+      "name": "DQ rules stewarded",
+      "description": "Suggested data quality rules are reviewed and marked Passed.",
+      "enabled": true,
+      "weight": 25,
+      "rule_type": "dq_rule_stewardship",
+      "config": {
+        "status_weights": {
+          "Passed": 100,
+          "Warning": 70,
+          "Failed": 0,
+          "Suggested": 25
+        }
+      }
+    },
+    {
+      "id": "recent-activity",
+      "name": "Recent steward activity",
+      "description": "Approved definitions were updated recently in the catalog.",
+      "enabled": true,
+      "weight": 25,
+      "rule_type": "recent_activity",
+      "config": { "window_days": 7 }
+    },
+    {
+      "id": "steward-approvals",
+      "name": "Steward approvals",
+      "description": "Columns have passed steward review (approved status).",
+      "enabled": true,
+      "weight": 25,
+      "rule_type": "steward_approvals",
+      "config": {}
+    },
+    {
+      "id": "classification-coverage",
+      "name": "Sensitive data classified",
+      "description": "PII and confidential columns have an assigned data classification.",
+      "enabled": false,
+      "weight": 15,
+      "rule_type": "classification_coverage",
+      "config": {
+        "sensitivity_keywords": ["pii", "confidential", "restricted", "personal", "hipaa", "gdpr"],
+        "required_classifications": ["PII", "Confidential", "Restricted", "Internal"]
+      }
+    },
+    {
+      "id": "glossary-linked",
+      "name": "Glossary terms linked",
+      "description": "Columns are linked to business glossary terms.",
+      "enabled": false,
+      "weight": 15,
+      "rule_type": "glossary_linked",
+      "config": {}
+    },
+    {
+      "id": "ownership-assigned",
+      "name": "Ownership assigned",
+      "description": "Each column has a data steward assigned on the Steward Review page.",
+      "enabled": false,
+      "weight": 15,
+      "rule_type": "ownership_assigned",
+      "config": {}
+    },
+    {
+      "id": "policy-citations",
+      "name": "Policy citations present",
+      "description": "Approved definitions cite governing policy sections from the knowledge base.",
+      "enabled": false,
+      "weight": 10,
+      "rule_type": "policy_citations",
+      "config": {}
+    }
+  ]
+}

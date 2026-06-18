@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class FieldMetadataInput(BaseModel):
@@ -27,6 +27,7 @@ class AnalyzePayload(BaseModel):
     persist: bool = True
     retrieval_mode: Literal["tfidf", "vector"] = "tfidf"
     embedding_model: str = "nomic-embed-text"
+    use_collibra: bool = False
 
 
 class ApprovalPayload(BaseModel):
@@ -53,6 +54,12 @@ class KnowledgeSectionInput(BaseModel):
     text: str = ""
 
 
+class KnowledgeSectionVerifyPayload(BaseModel):
+    title: str
+    text: str = ""
+    retrieval_mode: Literal["tfidf", "vector"] = "tfidf"
+
+
 class KnowledgeSectionUpdate(BaseModel):
     original_title: str
     title: str | None = None
@@ -67,3 +74,39 @@ class KnowledgeNlUpdatePayload(BaseModel):
     base_url: str = "http://localhost:11434"
     no_llm: bool = False
     dry_run: bool = False
+
+
+class LineageNlUpdatePayload(BaseModel):
+    instruction: str
+    provider: str = "ollama"
+    model: str = "gemma4:e2b"
+    base_url: str = "http://localhost:11434"
+    no_llm: bool = False
+    dry_run: bool = False
+    apply_after: bool = True
+
+
+class LineagePolicyUpdatePayload(BaseModel):
+    enabled: bool | None = None
+    name: str | None = None
+    description: str | None = None
+    config: dict[str, Any] | None = None
+
+
+class GovernancePrinciplePayload(BaseModel):
+    name: str
+    description: str = ""
+    rule_type: str
+    enabled: bool = True
+    weight: int = Field(25, ge=1, le=100)
+    config: dict[str, Any] = Field(default_factory=dict)
+
+
+class GovernanceNlUpdatePayload(BaseModel):
+    instruction: str
+    provider: str = "ollama"
+    model: str = "gemma4:e2b"
+    base_url: str = "http://localhost:11434"
+    no_llm: bool = False
+    dry_run: bool = False
+    recompute_after: bool = True

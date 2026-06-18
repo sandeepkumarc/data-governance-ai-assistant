@@ -1,0 +1,48 @@
+# AI-Assisted Data Governance — Windows-friendly (Node.js UI runs in Docker)
+#
+# Prerequisites: Docker Desktop for Windows
+#
+# Start:
+#   docker compose -f docker-compose.yml up --build
+#
+# UI:      http://localhost:5173
+# Backend: http://localhost:8000/api/health
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/data:/app/data
+      - ./backend/governance_knowledge.md:/app/governance_knowledge.md
+    environment:
+      DATABASE_URL: "sqlite:////app/data/governance.db"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: >
+      sh -c "python -c 'from db.session import init_db; init_db()' &&
+             python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web-ui:
+    build: ./web-ui
+    ports:
+      - "5173:5173"
+    environment:
+      # Proxy /api from the UI container to the backend container
+      VITE_DEV_API_PROXY: "http://backend:8000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    volumes:
+      - ./web-ui/src:/app/src
+      - ./web-ui/public:/app/public
+      - web_ui_node_modules:/app/node_modules
+
+volumes:
+  web_ui_node_modules:

@@ -1,16 +1,17 @@
-# GovernAI — Project Handoff & Continuation Memory
+# AI-Assisted Data Governance — Project Handoff & Continuation Memory
 
 > **Purpose:** Single source of truth for humans and AI assistants. Read this file first when resuming work or planning next steps.
 
 **Last updated:** June 2026  
-**Repo:** `codex-python` (Data Governance RAG / GovernAI platform)  
-**Status:** Executive demo-ready prototype
+**Canonical repo:** `/Users/sandeepchintakunta/Documents/data-gov-ai-assistant` (AI-Assisted Data Governance)  
+**Do not develop in:** `codex-python` (deprecated mirror — all changes belong here)  
+**Status:** Production-ready governance platform
 
 ---
 
 ## 1. What this project is
 
-**GovernAI** is a local-first **data governance assistant** that:
+**AI-Assisted Data Governance** is a local-first **data governance assistant** that:
 
 - Ingests CSV field metadata (database, table, column, type, samples, notes)
 - Retrieves relevant sections from **`backend/governance_knowledge.md`** (RAG)
@@ -18,15 +19,16 @@
 - Drafts glossary terms, classifications, sensitivity, governance actions
 - Persists definitions, lineage, quality rules, trust scores, audit log
 - Supports steward approval workflow and Collibra CSV export
+- Lineage stitching knowledge base: `backend/lineage_knowledge.md` + `lineage_policies` DB table (seeded from `lineage_policies.default.json`)
 
-**Not in scope yet:** Production SSO, real Collibra API, automated DQ execution, enterprise vector DB (Pinecone/pgvector).
+**Not in scope yet:** Production SSO, automated DQ execution, enterprise vector DB (Pinecone/pgvector).
 
 ---
 
 ## 2. Architecture (current)
 
 ```text
-demo-ui (React, :5173)  →  FastAPI backend (:8000)  →  SQLite governance.db
+web-ui (React, :5173)  →  FastAPI backend (:8000)  →  SQLite governance.db
                               ↓
                          rag_governance.py
                               ↓
@@ -53,13 +55,13 @@ demo-ui (React, :5173)  →  FastAPI backend (:8000)  →  SQLite governance.db
 | `backend/services/semantic_mapping.py` | Analyze/upload pipeline |
 | `backend/services/vector_store.py` | Embedding cache in `knowledge_embeddings` table |
 | `backend/data/governance.db` | SQLite (gitignored) — init via `init_db()` |
-| `demo-ui/` | **Executive demo frontend (GovernAI)** |
-| `demo-ui/src/data/demoData.ts` | Offline demo embedded data |
+| `web-ui/` | **AI-Assisted Data Governance web frontend (AI-Assisted Data Governance)** |
+| `web-ui/src/data/sampleData.ts` | AI-Assisted Data Governance (offline) embedded data |
 | `governance_api_client.py` | Python HTTP client for Streamlit |
 | `streamlit_rag_app.py` | Streamlit UI (8 tabs) |
 | `test_platform.sh` | End-to-end smoke tests (30 checks) |
-| `docs/EXECUTIVE_DEMO_DECK.md` | Executive presentation |
-| `docs/WINDOWS_DEMO_INSTALL.md` | Windows setup guide |
+| `docs/EXECUTIVE_OVERVIEW.md` | Executive presentation |
+| `docs/WINDOWS_INSTALL.md` | Windows setup guide |
 
 ---
 
@@ -83,9 +85,9 @@ demo-ui (React, :5173)  →  FastAPI backend (:8000)  →  SQLite governance.db
 - Collibra CSV/JSON export
 - Optional API key auth (`GOVERNANCE_API_KEY`)
 
-### Phase 6 — Executive demo UI (`demo-ui/`)
-- GovernAI branded React SPA, 10 screens
-- Login splash, dark mode, offline demo mode
+### Phase 6 — AI-Assisted Data Governance web UI (`web-ui/`)
+- AI-Assisted Data Governance branded React SPA, 10 screens
+- Login splash, dark mode, offline mode
 - Knowledge Base CRUD UI
 
 ### Phase 7 — Knowledge management
@@ -116,16 +118,16 @@ Swagger: http://localhost:8000/docs
 
 ---
 
-## 6. Demo modes
+## 6. Deployment modes
 
 | Mode | When to use | Requirements |
 |------|-------------|--------------|
-| **Full live** | Best executive demo | Backend + UI + Ollama |
+| **Full live** | Best live presentation | Backend + UI + Ollama |
 | **Live without LLM** | Fast, reliable | Backend + UI, `no_llm: true` |
-| **Offline demo** | No install / backup | UI only → "Launch offline demo" |
+| **AI-Assisted Data Governance (offline)** | No install / backup | UI only → "Work offline" |
 | **Vector semantic** | Abbreviation matching | + `nomic-embed-text`, `retrieval_mode: vector` |
 
-**Demo credentials:** `demo@govern.ai` / `demo`
+**Default sign-in:** `steward@governance.local` / `govassist`
 
 ---
 
@@ -149,30 +151,30 @@ cd backend && source ../.venv/bin/activate
 python -c "from db.session import init_db; init_db()"
 uvicorn main:app --reload --port 8000
 
-# Terminal 2 — Demo UI
-cd demo-ui && npm install && npm run dev
+# Terminal 2 — Web UI
+cd web-ui && npm install && npm run dev
 
 # Optional — Ollama
 ollama pull gemma4:e2b && ollama pull nomic-embed-text
 ```
 
-Windows: see **`docs/WINDOWS_DEMO_INSTALL.md`**
+Windows: see **`docs/WINDOWS_INSTALL.md`**
 
 Tests: `./test_platform.sh`
 
 ---
 
-## 9. Executive demo script (short)
+## 9. Presentation script (short)
 
 1. Login → Dashboard (KPIs)
-2. Semantic Mapping — upload `backend/sample_metadata.csv`, vector mode, generate
+2. Semantic Mapping — upload `backend/clinical_ehr_patients.csv` (table export), vector mode, generate
 3. Knowledge Base — NL update: *"Add cust_nbr as customer identifier alias"*
 4. Steward Review — approve one definition
 5. Lineage → Quality → Trust
 6. Export Collibra CSV
 7. Audit Log
 
-Full deck: **`docs/EXECUTIVE_DEMO_DECK.md`**
+Full deck: **`docs/EXECUTIVE_OVERVIEW.md`**
 
 ---
 
@@ -182,11 +184,11 @@ Full deck: **`docs/EXECUTIVE_DEMO_DECK.md`**
 - [ ] Load **real company policies** into knowledge base (replace sample content)
 - [ ] Run pilot on **one domain CSV** (500+ columns, masked samples)
 - [ ] Measure steward accept/reject/edit rates
-- [ ] Add company logo / branding to demo-ui login
-- [ ] PostgreSQL for shared team demo environment
+- [ ] Add company logo / branding to web-ui login
+- [ ] PostgreSQL for shared team environment
 
 ### For production roadmap
-- [ ] SSO / Azure AD login (replace demo login)
+- [ ] SSO / Azure AD login (replace default login)
 - [ ] Collibra REST API push (not just CSV)
 - [ ] pgvector or enterprise vector store at scale
 - [ ] Automated tests in CI (GitHub Actions)
@@ -212,21 +214,21 @@ cat .gitignore   # .env, *.db, .venv, node_modules should be listed
 # Do NOT commit
 # - backend/data/governance.db
 # - .env files with API keys
-# - demo-ui/node_modules/
+# - web-ui/node_modules/
 # - .venv/ or venv/
 
 # Safe to commit
-git add backend/ demo-ui/src demo-ui/public demo-ui/package.json demo-ui/package-lock.json
-git add demo-ui/vite.config.ts demo-ui/tsconfig.json demo-ui/index.html demo-ui/README.md
+git add backend/ web-ui/src web-ui/public web-ui/package.json web-ui/package-lock.json
+git add web-ui/vite.config.ts web-ui/tsconfig.json web-ui/index.html web-ui/README.md
 git add docs/ test_platform.sh governance_api_client.py streamlit_rag_app.py
 git add README.md WALKTHROUGH.md
 
 git status   # review
-git commit -m "Add GovernAI executive demo platform with docs and Windows install guide"
+git commit -m "Add AI-Assisted Data Governance governance platform with docs and Windows install guide"
 git push origin <branch>
 ```
 
-**Add to `.gitignore` if missing:** `demo-ui/node_modules/`, `demo-ui/dist/`
+**Add to `.gitignore` if missing:** `web-ui/node_modules/`, `web-ui/dist/`
 
 ---
 
@@ -239,7 +241,7 @@ git push origin <branch>
 | `GOVERNANCE_EMBEDDING_MODEL` | `nomic-embed-text` | Vector embeddings |
 | `GOVERNANCE_RETRIEVAL_MODE` | `tfidf` | Default retrieval |
 | `GOVERNANCE_API_URL` | — | Streamlit/client override |
-| `VITE_API_URL` | — | Demo UI build-time API URL |
+| `VITE_API_URL` | — | Web UI build-time API URL |
 
 ---
 
@@ -250,12 +252,12 @@ When the user asks **"what's next?"** or **"continue where we left off"**:
 1. Read this file
 2. Check `git status` and whether backend/UI are running
 3. Refer to **Section 10** for prioritized backlog
-4. Executive demo materials are in **`docs/EXECUTIVE_DEMO_DECK.md`**
-5. Windows setup is in **`docs/WINDOWS_DEMO_INSTALL.md`**
+4. Executive presentation materials are in **`docs/EXECUTIVE_OVERVIEW.md`**
+5. Windows setup is in **`docs/WINDOWS_INSTALL.md`**
 6. Do not commit unless explicitly asked
-7. Prefer `demo-ui` for executive demos, Streamlit for steward dev testing
+7. Prefer `web-ui` for live presentations, Streamlit for steward dev testing
 
-**Conversation context (June 2026):** Built full platform through Phase 7; fixed SQLite/venv/Ollama issues; added test_platform.sh; user preparing **executive demo at current company**.
+**Conversation context (June 2026):** Built full platform through Phase 7; fixed SQLite/venv/Ollama issues; added test_platform.sh; user preparing **executive presentation at current company**.
 
 ---
 

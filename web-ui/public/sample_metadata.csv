@@ -1,0 +1,8 @@
+database_name,table_name,column_name,data_type,sample_values,notes
+customer_db,customers,customer_id,string,C12345|C99881|C45112,Primary key for customer profile
+customer_db,customers,email_address,string,alex@example.com|sam@company.com|jordan@test.org,Used for login and notifications
+customer_db,customers,date_of_birth,date,1988-03-15|1974-11-02|2001-09-30,Collected during onboarding
+customer_db,orders,order_status,string,created|shipped|cancelled,Current state of an order
+customer_db,payments,payment_token,string,tok_abc123|tok_def456|tok_xyz789,Token returned by payment processor
+hr_db,employees,salary,decimal,95000|120000|72000,Employee compensation amount
+support_db,tickets,customer_comments,string,Please call after 5pm|Card failed again|Need address changed,Free text from support cases

@@ -1,0 +1,15 @@
+{
+  "folders": [
+    {
+      "path": ".",
+      "name": "AI-Assisted Data Governance"
+    }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/.venv": true,
+      "**/node_modules": true,
+      "**/.runtime-logs": true
+    }
+  }
+}

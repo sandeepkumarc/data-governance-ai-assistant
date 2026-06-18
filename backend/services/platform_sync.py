@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from typing import Iterable
 
 from sqlalchemy.orm import Session
 
-from db.models import FieldDefinition, LineageEdge, LineageNode, QualityRule, StewardAssignment, TrustScore
+from db.models import FieldDefinition, LineageEdge, LineageNode, QualityRule, StewardAssignment
 
 
 def slug_database(database_name: str) -> str:
@@ -37,6 +36,10 @@ def sync_from_field_definitions(session: Session, definitions: Iterable[FieldDef
 
     for database_name, table_name in affected_tables:
         recompute_trust_score(session, database_name, table_name)
+
+    from services.lineage_policies import apply_lineage_policies
+
+    apply_lineage_policies(session)
 
 
 def sync_lineage_for_definition(session: Session, definition: FieldDefinition) -> None:
@@ -78,20 +81,6 @@ def sync_lineage_for_definition(session: Session, definition: FieldDefinition) -
     _upsert_lineage_edge(session, db_id, table_id)
     _upsert_lineage_edge(session, table_id, column_id)
 
-    haystack = " ".join(
-        [
-            definition.column_name,
-            definition.data_classification,
-            definition.sensitivity,
-            definition.definition,
-        ]
-    ).lower()
-
-    if any(token in haystack for token in ["confidential", "restricted", "personal", "pii", "email", "contact"]):
-        _upsert_lineage_edge(session, column_id, "report_audit", "PII scan target")
-    if any(token in haystack for token in ["financial", "payment", "salary", "revenue", "amount"]):
-        _upsert_lineage_edge(session, column_id, "report_sales", "revenue links")
-
 
 def suggest_quality_rules(session: Session, definition: FieldDefinition) -> None:
     candidates = _quality_rule_candidates(definition)
@@ -127,6 +116,7 @@ def suggest_quality_rules(session: Session, definition: FieldDefinition) -> None
                     rule_name=candidate["rule_name"],
                     rule_type=candidate["rule_type"],
                     description=candidate["description"],
+                    reasoning=candidate["reasoning"],
                     threshold=candidate["threshold"],
                     status="Suggested",
                     source="auto_suggested",
@@ -136,6 +126,7 @@ def suggest_quality_rules(session: Session, definition: FieldDefinition) -> None
             existing.field_definition_id = definition.id
             existing.rule_type = candidate["rule_type"]
             existing.description = candidate["description"]
+            existing.reasoning = candidate["reasoning"]
             existing.threshold = candidate["threshold"]
 
 
@@ -154,64 +145,30 @@ def link_stewardship(session: Session, definition: FieldDefinition) -> None:
     assignment.field_definition_id = definition.id
 
 
-def recompute_trust_score(session: Session, database_name: str, table_name: str) -> TrustScore:
-    definitions = (
-        session.query(FieldDefinition)
-        .filter_by(database_name=database_name, table_name=table_name)
-        .all()
-    )
-    rules = (
-        session.query(QualityRule)
-        .filter_by(database_name=database_name, table_name=table_name)
-        .all()
-    )
-    steward = (
-        session.query(StewardAssignment)
-        .filter_by(database_name=database_name, table_name=table_name)
-        .order_by(StewardAssignment.updated_at.desc())
-        .first()
-    )
+def recompute_trust_score(session: Session, database_name: str, table_name: str):
+    """Recompute table readiness from governing principles (delegates to governance_principles)."""
+    from services.governance_principles import recompute_trust_score as _recompute
 
-    completeness = _score_completeness(definitions)
-    accuracy = _score_accuracy(rules)
-    freshness = _score_freshness(definitions)
-    schema_consistency = _score_schema_consistency(definitions)
-    overall = round((completeness + accuracy + freshness + schema_consistency) / 4, 1)
-
-    if overall >= 90:
-        status = "Healthy"
-    elif overall >= 75:
-        status = "Warning"
-    else:
-        status = "Critical"
-
-    row = (
-        session.query(TrustScore)
-        .filter_by(database_name=database_name, table_name=table_name)
-        .one_or_none()
-    )
-    if row is None:
-        row = TrustScore(database_name=database_name, table_name=table_name)
-        session.add(row)
-
-    row.overall_score = overall
-    row.breakdown = {
-        "completeness": completeness,
-        "accuracy": accuracy,
-        "freshness": freshness,
-        "schema_consistency": schema_consistency,
-    }
-    row.status = status
-    row.steward_assigned = steward.data_steward if steward else ""
-    row.last_profiled = datetime.now(timezone.utc)
-    session.flush()
-    return row
+    return _recompute(session, database_name, table_name)
 
 
 def _quality_rule_candidates(definition: FieldDefinition) -> list[dict[str, str]]:
     column = definition.column_name.lower()
-    classification = definition.data_classification.lower()
+    classification = definition.data_classification.lower() or "unspecified"
+    glossary = (definition.glossary_term or "").strip()
+    logical = (definition.logical_data_attribute_name or "").strip()
     rules: list[dict[str, str]] = []
+
+    context_bits = [
+        f"Column `{definition.column_name}` on `{definition.database_name}.{definition.table_name}`",
+    ]
+    if classification and classification != "unspecified":
+        context_bits.append(f"classification **{definition.data_classification}**")
+    if glossary:
+        context_bits.append(f"glossary term “{glossary}”")
+    if logical:
+        context_bits.append(f"logical attribute “{logical}”")
+    field_context = "; ".join(context_bits) + "."
 
     if "email" in column:
         rules.append(
@@ -220,6 +177,10 @@ def _quality_rule_candidates(definition: FieldDefinition) -> list[dict[str, str]
                 "rule_type": "Validity",
                 "description": "Verifies that values match a valid email address pattern.",
                 "threshold": "99.9%",
+                "reasoning": (
+                    f"{field_context} The column name indicates an email/contact field, "
+                    "so a validity rule with a 99.9% pass target is recommended before publishing to the catalog."
+                ),
             }
         )
     if column.endswith("_id") or column.endswith("id"):
@@ -229,35 +190,60 @@ def _quality_rule_candidates(definition: FieldDefinition) -> list[dict[str, str]
                 "rule_type": "Uniqueness",
                 "description": "Validates zero duplicate identifier values across active table rows.",
                 "threshold": "100%",
+                "reasoning": (
+                    f"{field_context} The column name follows an identifier pattern (`_id` / `id`), "
+                    "so uniqueness at 100% is suggested to protect downstream joins and master data."
+                ),
             }
         )
     if classification in {"confidential", "restricted"} or any(
         token in column for token in ["comment", "note", "ssn", "password", "token"]
     ):
+        triggers = []
+        if classification in {"confidential", "restricted"}:
+            triggers.append(f"classification is {definition.data_classification}")
+        matched = [t for t in ["comment", "note", "ssn", "password", "token"] if t in column]
+        if matched:
+            triggers.append(f"column name contains sensitive tokens: {', '.join(matched)}")
+        trigger_text = " and ".join(triggers)
         rules.append(
             {
                 "rule_name": "PII Compliance Adherence",
                 "rule_type": "Compliance Check",
                 "description": "Flags rows where sensitive values appear without approved masking controls.",
                 "threshold": "100%",
+                "reasoning": (
+                    f"{field_context} Suggested because {trigger_text}. "
+                    "Implement masking and compliance checks in your enterprise DQ/catalog tools."
+                ),
             }
         )
     if any(token in column for token in ["salary", "amount", "balance", "payment", "income"]):
+        matched = [t for t in ["salary", "amount", "balance", "payment", "income"] if t in column]
         rules.append(
             {
                 "rule_name": "Value Boundary Constraint",
                 "rule_type": "Accuracy",
                 "description": "Verifies numeric financial values are within approved business boundaries.",
                 "threshold": "100%",
+                "reasoning": (
+                    f"{field_context} Financial/numeric tokens detected ({', '.join(matched)}). "
+                    "Boundary and sign/range checks help prevent reporting and revenue errors."
+                ),
             }
         )
     if any(token in column for token in ["status", "state", "stage"]):
+        matched = [t for t in ["status", "state", "stage"] if t in column]
         rules.append(
             {
                 "rule_name": "Allowed Workflow Values",
                 "rule_type": "Validity",
                 "description": "Ensures workflow status values match approved enumerations.",
                 "threshold": "100%",
+                "reasoning": (
+                    f"{field_context} Workflow-related naming ({', '.join(matched)}) implies a closed set of values; "
+                    "enumeration validation avoids invalid lifecycle states in analytics."
+                ),
             }
         )
     if not rules:
@@ -267,52 +253,13 @@ def _quality_rule_candidates(definition: FieldDefinition) -> list[dict[str, str]
                 "rule_type": "Completeness",
                 "description": "Checks that the column is populated for active records above the approved threshold.",
                 "threshold": "95%",
+                "reasoning": (
+                    f"{field_context} No specialized pattern matched; default completeness at 95% "
+                    "ensures the field is documented and populated for core operational use."
+                ),
             }
         )
     return rules
-
-
-def _score_completeness(definitions: list[FieldDefinition]) -> int:
-    if not definitions:
-        return 0
-    filled = sum(1 for item in definitions if item.definition.strip())
-    return round(100 * filled / len(definitions))
-
-
-def _score_accuracy(rules: list[QualityRule]) -> int:
-    if not rules:
-        return 70
-    passed = sum(1 for rule in rules if rule.status in {"Passed", "Suggested"})
-    warning = sum(1 for rule in rules if rule.status == "Warning")
-    score = (passed * 100 + warning * 70) / len(rules)
-    return round(score)
-
-
-def _ensure_utc(value: datetime) -> datetime:
-    if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
-    return value
-
-
-def _score_freshness(definitions: list[FieldDefinition]) -> int:
-    if not definitions:
-        return 0
-    now = datetime.now(timezone.utc)
-    recent = 0
-    for item in definitions:
-        updated = item.updated_at or item.created_at
-        if updated and (now - _ensure_utc(updated)).days <= 7:
-            recent += 1
-    return round(100 * recent / len(definitions))
-
-
-def _score_schema_consistency(definitions: list[FieldDefinition]) -> int:
-    if not definitions:
-        return 0
-    approved = sum(1 for item in definitions if item.approval_status == "approved")
-    pending = sum(1 for item in definitions if item.approval_status == "pending_review")
-    score = (approved * 100 + pending * 60) / len(definitions)
-    return round(score)
 
 
 def _upsert_lineage_node(session: Session, node_id: str, **values: object) -> LineageNode:

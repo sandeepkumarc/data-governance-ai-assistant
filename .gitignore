@@ -31,8 +31,14 @@ outputs/
 # Local SQLite database
 backend/data/*.db
 
+# Runtime / legacy pid files
+.demo-pids
+.runtime-pids.txt
+.runtime-logs/
+.runtime/
+
 # Node / frontend
-demo-ui/node_modules/
-demo-ui/dist/
-demo-ui/.vite/
-demo-ui/tsconfig.tsbuildinfo
+web-ui/node_modules/
+web-ui/dist/
+web-ui/.vite/
+web-ui/tsconfig.tsbuildinfo

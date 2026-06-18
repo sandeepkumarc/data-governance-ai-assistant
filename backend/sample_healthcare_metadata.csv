@@ -1,0 +1,16 @@
+database_name,table_name,column_name,data_type,sample_values,notes
+clinical_ehr,patients,mrn,string,MRN-104928|MRN-220011|MRN-330177,Primary medical record number — HIPAA identifier
+clinical_ehr,patients,patient_id,string,PT-8842|PT-9931|PT-12004,Internal patient surrogate key linked to encounters
+clinical_ehr,patients,date_of_birth,date,1975-08-12|1990-03-22|2018-01-05,Date of birth for age-based clinical rules — HIPAA identifier
+clinical_ehr,patients,patient_email,string,patient1@example.com|patient2@example.com,Patient portal contact — PHI when linked to health context
+clinical_ehr,encounters,icd10_dx_code,string,E11.9|I10|J45.909,ICD-10-CM diagnosis code for clinical and claims use
+clinical_ehr,encounters,diagnosis_text,string,Type 2 diabetes mellitus|Essential hypertension,Free-text diagnosis narrative — restricted PHI
+clinical_ehr,lab_results,loinc_code,string,2345-7|718-7|2951-2,LOINC code for laboratory observation
+clinical_ehr,lab_results,result_value,string,142|4.5|negative,Quantitative or qualitative lab result tied to LOINC
+clinical_ehr,medications,ndc_code,string,00093-7180-01|59762-0045-01,NDC for dispensed medication in eMAR
+claims_payer,claims,member_id,string,SUB-440192|SUB-881002|SUB-102883,Health plan beneficiary / subscriber identifier
+claims_payer,claims,hcpcs_code,string,99213|80053|36415,HCPCS procedure code on professional claim
+claims_payer,claims,billed_amount,decimal,125.00|890.50|42.00,Amount billed to payer for adjudication
+behavioral_health,treatment,sud_treatment_flag,string,Y|N,Substance use disorder program episode — 42 CFR Part 2
+clinical_ehr,encounters,encounter_id,string,ENC-90012|ENC-90044,Visit or encounter identifier
+clinical_ehr,providers,rendering_npi,string,1234567890|1987654321,National Provider Identifier for rendering clinician

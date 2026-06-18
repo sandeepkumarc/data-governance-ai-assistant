@@ -46,7 +46,11 @@ def lineage_node_to_dict(row: LineageNode) -> dict[str, Any]:
 
 
 def lineage_edge_to_dict(row: LineageEdge) -> dict[str, Any]:
-    payload = {"source": row.source_id, "target": row.target_id}
-    if row.label:
-        payload["label"] = row.label
-    return payload
+    return {
+        "id": row.id,
+        "source_id": row.source_id,
+        "target_id": row.target_id,
+        "label": row.label or "",
+        "source": row.source_id,
+        "target": row.target_id,
+    }

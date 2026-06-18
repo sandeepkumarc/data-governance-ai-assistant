@@ -1,0 +1,139 @@
+{
+  "policies": [
+    {
+      "id": "default-db-table-column",
+      "name": "Structural hierarchy",
+      "description": "Baseline (required): database → table → column from analyzed metadata. Aligns with OpenLineage dataset/field hierarchy and DAMA physical metadata layers.",
+      "enabled": true,
+      "rule_type": "structural",
+      "config": {
+        "standard": "OpenLineage / DAMA physical metadata",
+        "use_case": "Automatic containment from semantic mapping saves"
+      }
+    },
+    {
+      "id": "match-column-full-name",
+      "name": "Stitch columns by matching full name",
+      "description": "Industry: MDM entity resolution. Link columns across databases when names match exactly (e.g. customer_id in CRM and warehouse).",
+      "enabled": true,
+      "rule_type": "match_full_name",
+      "config": {
+        "node_types": ["column"],
+        "match_on": ["column_name", "label"],
+        "cross_database": true,
+        "edge_label": "same full name",
+        "standard": "MDM / cross-system entity resolution",
+        "use_case": "Find duplicate identifiers across source systems"
+      }
+    },
+    {
+      "id": "match-logical-attribute",
+      "name": "Stitch by logical attribute name",
+      "description": "Industry: semantic / business metadata (Collibra, Informatica EDC). Link columns sharing the same logical data attribute from semantic mapping.",
+      "enabled": true,
+      "rule_type": "match_logical_attribute",
+      "config": {
+        "cross_database": true,
+        "edge_label": "same logical attribute",
+        "standard": "DAMA business metadata / semantic layer",
+        "use_case": "Connect physically different columns that mean the same business concept"
+      }
+    },
+    {
+      "id": "match-glossary-term",
+      "name": "Stitch by business glossary term",
+      "description": "Industry: business glossary alignment (DAMA-DMBOK, ISO 11179). Link columns assigned to the same glossary term during steward review.",
+      "enabled": true,
+      "rule_type": "match_glossary_term",
+      "config": {
+        "cross_database": true,
+        "edge_label": "same glossary term",
+        "standard": "DAMA-DMBOK business glossary",
+        "use_case": "Trace data elements to approved business terms across domains"
+      }
+    },
+    {
+      "id": "match-table-name",
+      "name": "Stitch tables by matching name",
+      "description": "Industry: data mesh / federated catalogs. Link tables with the same name across databases (e.g. customers in OLTP vs analytics lake).",
+      "enabled": true,
+      "rule_type": "match_table_name",
+      "config": {
+        "cross_database": true,
+        "edge_label": "same table name",
+        "standard": "Federated catalog / data mesh",
+        "use_case": "Relate operational and analytical copies of the same entity table"
+      }
+    },
+    {
+      "id": "pii-to-audit-report",
+      "name": "PII columns to compliance ledger",
+      "description": "Industry: privacy (GDPR Art. 30, CCPA). Route confidential / PII columns to the GDPR Compliance Ledger report for processing inventory.",
+      "enabled": true,
+      "rule_type": "keyword_to_report",
+      "config": {
+        "keywords": ["confidential", "restricted", "personal", "pii", "email", "contact", "patient", "mrn", "dob", "hipaa", "ssn", "phone"],
+        "report_id": "report_audit",
+        "edge_label": "PII scan target",
+        "standard": "GDPR / CCPA privacy register",
+        "use_case": "Build privacy impact and processing-activity views"
+      }
+    },
+    {
+      "id": "hipaa-phi-minimum-necessary",
+      "name": "HIPAA PHI to compliance ledger",
+      "description": "Industry: healthcare (HIPAA minimum necessary). Route PHI-related columns to the compliance ledger for access and disclosure tracking.",
+      "enabled": false,
+      "rule_type": "keyword_to_report",
+      "config": {
+        "keywords": ["phi", "hipaa", "patient", "diagnosis", "clinical", "ehr", "mrn", "icd", "cpt", "provider", "admission"],
+        "report_id": "report_audit",
+        "edge_label": "PHI compliance target",
+        "standard": "HIPAA / HITRUST",
+        "use_case": "Healthcare privacy officer blast-radius reviews"
+      }
+    },
+    {
+      "id": "financial-to-sales-report",
+      "name": "Financial columns to revenue dashboard",
+      "description": "Industry: finance / BI lineage. Route payment and revenue-related columns to the Sales & Revenue Dashboard.",
+      "enabled": true,
+      "rule_type": "keyword_to_report",
+      "config": {
+        "keywords": ["financial", "payment", "salary", "revenue", "amount", "claim", "billing", "invoice", "order"],
+        "report_id": "report_sales",
+        "edge_label": "revenue links",
+        "standard": "BCBS 239 / SOX downstream reporting",
+        "use_case": "Impact analysis before changing revenue or payment fields"
+      }
+    },
+    {
+      "id": "sox-financial-controls",
+      "name": "SOX control fields to audit report",
+      "description": "Industry: SOX ITGC. Route general-ledger and control-relevant columns to the compliance ledger for audit trail lineage.",
+      "enabled": false,
+      "rule_type": "keyword_to_report",
+      "config": {
+        "keywords": ["gl_", "ledger", "journal", "posting", "reconciliation", "sox", "control", "approval", "signoff"],
+        "report_id": "report_audit",
+        "edge_label": "SOX control link",
+        "standard": "SOX / IT general controls",
+        "use_case": "Audit readiness for financial reporting systems"
+      }
+    },
+    {
+      "id": "bcbs239-risk-aggregation",
+      "name": "Risk data to revenue dashboard",
+      "description": "Industry: banking (BCBS 239). Link risk and exposure columns used in regulatory aggregation to the revenue/risk dashboard.",
+      "enabled": false,
+      "rule_type": "keyword_to_report",
+      "config": {
+        "keywords": ["exposure", "risk", "counterparty", "limit", "var", "pd", "lgd", "ead", "basel"],
+        "report_id": "report_sales",
+        "edge_label": "risk aggregation",
+        "standard": "BCBS 239",
+        "use_case": "Lineage for risk data aggregation and reportability"
+      }
+    }
+  ]
+}
