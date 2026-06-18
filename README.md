@@ -152,27 +152,27 @@ This is a prototype for governance workflow experimentation. Do not upload produ
 
 ## Screenshots
 
-![Upload and settings](Pasted\ Graphic.png)
+![Upload and settings](docs/images/Pasted\ Graphic.png)
 
 ![Results table](Pasted Graphic 1.pngg)
 
-![Dashboard](Pasted\ Graphic\ 2.png)
+![Dashboard](docs/images/Pasted\ Graphic\ 2.png)
 
-![Knowledge Base](Pasted\ Graphic\ 3.png)
+![Knowledge Base](docs/images/Pasted\ Graphic\ 3.png)
 
-![Semantic Mapping](Pasted\ Graphic\ 4.png)
+![Semantic Mapping](docs/images/Pasted\ Graphic\ 4.png)
 
-![Lineage View](Pasted\ Graphic\ 5.png)
+![Lineage View](docs/images/Pasted\ Graphic\ 5.png)
 
-![Quality Rules](Pasted\ Graphic\ 6.png)
+![Quality Rules](docs/images/Pasted\ Graphic\ 6.png)
 
-![Trust Scores](Pasted\ Graphic\ 7.png)
+![Trust Scores](docs/images/Pasted\ Graphic\ 7.png)
 
-![Export Options](Pasted\ Graphic\ 8.png)
+![Export Options](docs/images/Pasted\ Graphic\ 8.png)
 
-![Audit Log](Pasted\ Graphic\ 9.png)
+![Audit Log](docs/images/Pasted\ Graphic\ 9.png)
 
-![Settings](Pasted\ Graphic\ 10.png)
+![Settings](docs/images/Pasted\ Graphic\ 10.png)
 
 ## Further Documentation
 
