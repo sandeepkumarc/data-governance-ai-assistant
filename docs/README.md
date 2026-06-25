@@ -2,6 +2,7 @@
 
 | Document | Audience | Purpose |
 |----------|----------|---------|
+| [SETUP_GUIDE.md](./SETUP_GUIDE.md) | Everyone | **Step-by-step Mac & Windows clone, install, run** |
 | [EXECUTIVE_OVERVIEW.md](./EXECUTIVE_OVERVIEW.md) | Executives, sponsors | 15-slide presentation with talk track |
 | [PROJECT_HANDOFF.md](./PROJECT_HANDOFF.md) | Engineers, AI assistants | Full project state, architecture, next steps |
 | [WINDOWS_INSTALL.md](./WINDOWS_INSTALL.md) | IT, presenters on Windows | Step-by-step install for Windows laptop |

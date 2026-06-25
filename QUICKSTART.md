@@ -15,11 +15,21 @@ chmod +x scripts/start.sh
 .\scripts\start.ps1
 ```
 
-### Windows — Node.js via Docker (no native Node)
+### Windows (Git Bash — no npm)
 
-```powershell
-.\scripts\start.ps1 -DockerUi
+Use Docker for the UI; start API manually or via PowerShell:
+
+```bash
+# Tab 1 — API
+source .venv/Scripts/activate && cd backend && python -m uvicorn main:app --reload --port 8000
+
+# Tab 2 — UI (Docker)
+docker compose -f docker-compose.web-ui.yml up --build
 ```
+
+Or: `powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/restart.ps1 -DockerUi`
+
+See [docs/SETUP_GUIDE.md](docs/SETUP_GUIDE.md) for full steps.
 
 ### Stop services
 
@@ -73,7 +83,7 @@ Windows Docker UI: `.\scripts\restart.ps1 -DockerUi`
 ## Browser
 
 - **URL:** http://127.0.0.1:5173
-- **Login:** `steward@governance.local` / `govassist`
+- **Login:** `steward@governance.local` / `steward`
 - **In-app tour:** Sidebar → **Platform tour**
 - **Presenter script (private):** [docs/PRESENTATION_SCRIPT.md](docs/PRESENTATION_SCRIPT.md)
 
@@ -87,6 +97,7 @@ On the login page → **Work offline** (no backend or Ollama required).
 
 ## More detail
 
+- **[docs/SETUP_GUIDE.md](docs/SETUP_GUIDE.md)** — full Mac & Windows clone-to-run steps
 - [docs/WINDOWS_INSTALL.md](docs/WINDOWS_INSTALL.md)
 - [docs/EXECUTIVE_OVERVIEW.md](docs/EXECUTIVE_OVERVIEW.md)
 - [docs/KNOWLEDGE_BASE_GUIDE.md](docs/KNOWLEDGE_BASE_GUIDE.md) — add policy content for better citations
