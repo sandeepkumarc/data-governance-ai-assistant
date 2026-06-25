@@ -70,6 +70,10 @@ Open: `http://127.0.0.1:5173`
 ./scripts/restart.sh          # API :8000 + UI :5173
 ```
 
+**New to the project?** See **[docs/SETUP_GUIDE.md](docs/SETUP_GUIDE.md)** for full Mac and Windows clone-to-run steps.
+
+**Login:** `steward@governance.local` / `steward` · or **Work offline** on the login page.
+
 ## Input Format
 
 CSV columns:

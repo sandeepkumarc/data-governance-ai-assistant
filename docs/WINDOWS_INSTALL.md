@@ -45,7 +45,7 @@ cd $HOME\Documents\data-gov-ai-assistant
 docker compose -f docker-compose.web-ui.yml up --build
 ```
 
-Open **http://localhost:5173** — login `steward@governance.local` / `govassist`
+Open **http://localhost:5173** — login `steward@governance.local` / `steward`
 
 The UI container proxies `/api` to `host.docker.internal:8000` (your native backend).
 
@@ -216,7 +216,7 @@ Open browser: **http://localhost:5173**
 
 | Option | Steps |
 |--------|-------|
-| **Full live mode** | Sign in: `steward@governance.local` / `govassist` (backend must be running) |
+| **Full live mode** | Sign in: `steward@governance.local` / `steward` (backend must be running) |
 | **AI-Assisted Data Governance (offline) (safest)** | Click **Work offline** on login — works without backend/Ollama |
 
 ---
